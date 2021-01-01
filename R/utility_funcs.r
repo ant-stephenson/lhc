@@ -1,3 +1,10 @@
+
+#' Import data from the Higgs csv file. Reorganise into covariates, labels and supplementary data (weights, ids)
+#' Replace -999s with NA
+#' Standardize covariates
+#' 
+#' @param filepath str location of csv
+#' @return named list of X, y, w, kaggle_w, kaggle_s, e_id, nj
 import_data <- function(filepath="atlas-higgs-challenge-2014-v2.csv") {
     # Import data - put all this in a function to create a pipeline
     lhc_data <- read.csv(filepath)
@@ -36,7 +43,10 @@ import_data <- function(filepath="atlas-higgs-challenge-2014-v2.csv") {
     return(output)
 }
 
-# reduce feature space
+#' Reduce feature space dimensionality by exploiting redundancy
+#' 
+#' @param X matrix of covariates
+#' @return X augmented matrix of covariates
 # based on 
 # https://www.kaggle.com/c/higgs-boson/discussion/9576
 reduce_features <- function(X) {
@@ -51,6 +61,9 @@ reduce_features <- function(X) {
     # new_phi=(rot_phi+3*pi) %% (2*pi) - pi
 }
 
+#' Uses the sign of the pseudorapidity of the tau particle to modify the sign of the pseudorapidity of the leptons and jets, on the basis that the interaction should be invariant to rotations of $\pi$ about the beam (z) axis.
+#' $\eta(\theta) = -\log\tan\frac{\theta}{2}$
+#' $\eta(\pi-\theta) = -\eta(\theta)$
 invert_angle_sign <- function(X) {
     signs <- sign(X$"PRI_tau_eta")
     X$"PRI_tau_eta" <- signs * X$"PRI_tau_eta"
