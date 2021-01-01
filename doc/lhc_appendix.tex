@@ -1,0 +1,78 @@
+
+\begin{appendices}
+\section{AMS}
+Is the AMS metric convex?
+\eq{
+    \rm{AMS} &= \sqrt{2(s+b)\log(1+\frac{s}{b})-s}
+}
+
+In the documentation, the implication is that in general, we expect $b \geqq s$ giving the approximate AMS as $\rm{AMS} \sim \frac{s}{\sqrt{b}}(1+\mc{O}(\frac{s}{b}))$.
+
+If we directly check the derivatives of the approximate AMS in the large $b$ regime:
+\eq{
+    \pd_s^2\frac{s}{\sqrt{b}} &= 0\\
+    \pd_b^2\frac{s}{\sqrt{b}} &= \frac{3}{4}\frac{s}{b^{5/2}} >0\\
+    \pd_{bs}^2 &= -\frac{1}{2b^{3/2}} < 0
+}
+which implies non-convexity (and non-concavity).
+
+To check more carefully though, calculate the terms of the Hessian of the original and then apply the approximation:
+\eq{
+    \pd_s\rm{AMS} &= \log(1+\frac{s}{b})\rm{AMS}^{-1} \\
+    \pd_b\rm{AMS} &= (\log(1+\frac{s}{b}) + sb)\rm{AMS}^{-1} \\
+    \pd_s^2\rm{AMS} &= \frac{1}{b+s}\rm{AMS}^{-1} - \log(1+\frac{s}{b})^2\rm{AMS}^{-3} \\
+    \pd_b^2\rm{AMS} &= (\frac{sb}{s+b}+s)\rm{AMS}^{-1} - (\log(1+\frac{s}{b}) + sb)^2\rm{AMS}^{-3} \\
+    \pd_{sb}^2 &= (\frac{1}{s+b}+b)\rm{AMS}^{-1} - \log(1+\frac{s}{b})(\log(1+\frac{s}{b}) + sb)\rm{AMS}^{-3}
+}
+and then verify whether any of them are ever $<0$.
+
+Using the AMS approximation, and $\log\left(1+\frac{s}{b}\right) \sim \frac{s}{b} - \half\left(\frac{s}{b}\right)^2$ we get the following
+\eq{
+    \pd_s^2\rm{AMS} &\sim \frac{1}{b+s}\frac{\sqrt{b}}{s} - \frac{b^{3/2}}{s^3}\frac{s^2}{b^2} \\
+    &\sim \frac{1}{sb^{3/2}} - \frac{1}{sb^\half} \\
+    < 0
+}
+Since in this regime of large $b$ this term is negative, the Hessian cannot be positive definite and hence the metric is non-convex. If the Hessian is \emph{concave} though, we can simply optimize $-\rm{AMS}$, so we need to check the other terms.
+
+\eq{
+    \pd_b^2\rm{AMS} &\sim \frac{sb}{s+b}\frac{\sqrt{b}}{s} + \sqrt{b} - \frac{b^{3/2}}{s^3}\left(\frac{s}{b} - \half\bigg(\frac{s}{b}\bigg)^2 + sb\right)^2 \\
+    &= \frac{b^{3/2}}{s+b} + \sqrt{b} - \frac{1}{s\sqrt{b}} - \frac{b^{7/2}}{s} - 2\frac{b^{3/2}}{s} + \sqrt{b} < 0
+}
+
+\eq{
+    \pd_{bs}^2\rm{AMS} &\sim \frac{\sqrt{b}}{s(s+b)}+\frac{b^{3/2}}{s} - \frac{b^{3/2}}{s^3}\left(\frac{s}{b}-\half\bigg(\frac{s}{b}\bigg)^2\right)\left(\frac{s}{b}-\half\bigg(\frac{s}{b}\bigg)^2 + sb\right) \\
+    &\sim \frac{1}{s\sqrt{b}}\left(1-\frac{s}{b}\right) + \frac{b^{3/2}}{s} - \frac{1}{s\sqrt{b}} + \half\sqrt{b} - \frac{b^{3/2}}{s} \\
+    &\sim -\frac{1}{b^{3/2}} + \half\sqrt{b} > 0
+}
+
+\section{Modelling}
+
+\subsection{Kernel Logistic Regression}
+\textcolor{red}{This doesn't quite work. Maybe we can just solve dual problem for $\alpha$ directly? just need to be careful with formulation/signs}
+
+Given a Newton update of
+\eq{
+    \bm{\beta}_{k+1} \leftarrow \bm{\beta}_k - \bm{H}^{-1}\bm{g}
+}
+where $\bm{H}$ is the Hessian and $\bm{g}$ is the gradient of the loss function we can write out what these terms are for logistic regression and then apply the Woodbury identity to transform them into a kernelised version.
+
+For logistic regression:
+\eq{
+    \bm{H} &= -\Xv^T\bm{W}\Xv + \lambda\Iv \\
+    \bm{g} &= \Xv^T(\yv-\bm{\mu}) + \lambda\bm{\beta} \\
+    \bm{\beta}_{k+1} &= \bm{\beta}_k + (\Xv^T\bm{W}\Xv + \lambda\Iv)^{-1}\left(\Xv^T(\yv - \bm{\mu}) + \lambda\bm{\beta}_k\right) \\
+    &= \bm{\beta}_k + \delta\bm{\beta}_k
+}
+
+Now applying two versions of Woodbury and replacing the feature matrix $\Xv$ with the transformed matrix $\Phiv$:
+\eq{
+    \delta\bm{\beta}_k &= \frac{1}{\lambda}\Iv\Phiv^T(\Phiv\frac{1}{\lambda}\Iv\Phiv^T + \bm{W}^{-1})^{-1}\bm{W}^{-1}(\yv-\bm{\mu}) + (\frac{1}{\lambda}\Iv - \frac{1}{\lambda}\Iv\Phiv^T(\bm{W}^{-1} + \Phiv\frac{1}{\lambda}\Iv\Phiv^T)^{-1}\Phiv\frac{1}{\lambda}\Iv)\lambda\bm{\beta}_k \\
+    &= \Phiv^T(\Phiv\Phiv^T + \lambda\bm{W}^{-1})^{-1}\bm{W}^{-1}(\yv-\bm{\mu}) + (\Iv - \Phiv^T(\Phiv\Phiv^T + \lambda\bm{W}^{-1})^{-1}\Phiv)\lambda\bm{\beta}_k
+}
+Now defining a kernel matrix $\Kv = \Phiv\Phiv^T$:
+\eq{
+    \delta\bm{\beta}_k &= 
+}
+
+
+\end{appendices}

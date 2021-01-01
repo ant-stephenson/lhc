@@ -1,0 +1,115 @@
+\documentclass[a4paper,11pt, notitlepage]{article}
+%\usepackage[utf8]{inputenc}
+
+\usepackage[margin=1.4in]{geometry}
+
+\usepackage{textcomp}
+\usepackage{inputenc}
+
+\usepackage{color}
+
+\usepackage{hyperref}
+\hypersetup{colorlinks=true, linkcolor=blue}
+
+\usepackage{cite}
+
+\usepackage[ruled,vlined]{algorithm2e}
+
+\usepackage{graphicx}
+\usepackage{caption}
+\usepackage{subcaption}
+\DeclareGraphicsExtensions{.png, .pdf, .jpeg, .jpg}
+
+\usepackage{amsmath}
+\usepackage{bm}
+\DeclareMathOperator*{\argmax}{argmax}
+\DeclareMathOperator*{\argmin}{argmin}
+\DeclareMathOperator{\Tr}{Tr}
+\DeclareMathOperator{\Cov}{Cov}
+\DeclareMathOperator{\Var}{Var}
+\DeclareMathOperator{\E}{E}
+\DeclareMathOperator\supp{supp}
+\DeclareMathOperator{\sign}{sign}
+\DeclareMathOperator{\const}{const.}
+
+\usepackage{amssymb}
+\usepackage{wasysym}
+\usepackage{mathtools}
+\usepackage{gensymb}
+\usepackage{tensor}
+%\usepackage{langle|}
+\usepackage{bbold}
+
+\usepackage{wrapfig}
+
+%eqn environments
+\newcommand{\be}{\begin{equation}}
+\newcommand{\ee}{\end{equation}}
+\newcommand{\eq}[1]{\begin{align*}#1\end{align*}}
+\newcommand{\numeq}[1]{\begin{align}#1\end{align}}
+\newcommand{\bp}{\begin{pmatrix}}
+\newcommand{\ep}{\end{pmatrix}}
+
+%vectors
+\newcommand{\rm}[1]{\mathrm{#1}}
+\newcommand{\mc}[1]{\mathcal{#1}}
+\newcommand{\wv}{\mathbf{w}}
+\newcommand{\xv}{\mathbf{x}}
+\newcommand{\Xv}{\mathbf{X}}
+\newcommand{\yv}{\mathbf{y}}
+\newcommand{\zv}{\mathbf{z}}
+\newcommand{\Iv}{\mathbf{I}}
+\newcommand{\Kv}{\mathbf{K}}
+\newcommand{\kv}{\mathbf{k}}
+\newcommand{\phiv}{\bm{\phi}}
+\newcommand{\Phiv}{\mathbf{\Phi}}
+\newcommand{\muv}{\bm{\mu}}
+\newcommand{\Sigmav}{\mathbf{\Sigma}}
+\newcommand{\norm}[1]{\left\lVert#1\right\rVert}
+
+%other maths
+\newcommand{\pd}{\partial}
+\newcommand{\inprod}[2]{\langle#1,#2\rangle}
+\newcommand{\half}{\frac{1}{2}}
+\newcommand{\e}{\mathrm{e}}
+\newcommand{\eps}{\epsilon}
+
+%statistics
+\newcommand{\mvnprefactor}{\frac{1}{(2\pi)^{d/2}|\Sigmav|^{1/2}}}
+
+%probability
+\newcommand\given[1][]{\:#1\vert\:}
+
+
+\newcommand{\convexpath}[2]{
+[   
+    create hullnodes/.code={
+        \global\edef\namelist{#1}
+        \foreach [count=\counter] \nodename in \namelist {
+            \global\edef\numberofnodes{\counter}
+            \node at (\nodename) [draw=none,name=hullnode\counter] {};
+        }
+        \node at (hullnode\numberofnodes) [name=hullnode0,draw=none] {};
+        \pgfmathtruncatemacro\lastnumber{\numberofnodes+1}
+        \node at (hullnode1) [name=hullnode\lastnumber,draw=none] {};
+    },
+    create hullnodes
+]
+($(hullnode1)!#2!-90:(hullnode0)$)
+\foreach [
+    evaluate=\currentnode as \previousnode using \currentnode-1,
+    evaluate=\currentnode as \nextnode using \currentnode+1
+    ] \currentnode in {1,...,\numberofnodes} {
+  let
+    \p1 = ($(hullnode\currentnode)!#2!-90:(hullnode\previousnode)$),
+    \p2 = ($(hullnode\currentnode)!#2!90:(hullnode\nextnode)$),
+    \p3 = ($(\p1) - (hullnode\currentnode)$),
+    \n1 = {atan2(\y3,\x3)},
+    \p4 = ($(\p2) - (hullnode\currentnode)$),
+    \n2 = {atan2(\y4,\x4)},
+    \n{delta} = {-Mod(\n1-\n2,360)}
+  in 
+    {-- (\p1) arc[start angle=\n1, delta angle=\n{delta}, radius=#2] -- (\p2)}
+}
+-- cycle
+}
