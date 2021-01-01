@@ -1,6 +1,11 @@
 library(ggplot2)
 #source("utility_funcs.r") 
 
+#' Compute receiver operating characteristic (ROC) curve
+#' 
+#' @param y response vector
+#' @param p_hat probability outputs from model
+#' @return list of false positive and true positive rates at different thresholds
 compute_roc <- function(y, p_hat) {
     # FP = false positive rate = no. false positives / number of negatives
     # N <- 50   
@@ -33,6 +38,11 @@ compute_roc <- function(y, p_hat) {
     return(list(FP, TP))
 }
 
+#' Calculate the area under the ROC curve (AUC) as a metric of performance
+#' 
+#' @param FP false positive rate (vector)
+#' @param TP true positive rate (vector)
+#' @return AUC estimate (scalar)
 compute_AUC <- function(FP, TP) {
     #using trapezoidal rule to find integral over our points
     AUC <- 0
@@ -48,7 +58,10 @@ compute_AUC <- function(FP, TP) {
     return(AUC)
 }
 
-# want to plot a curve for each fold
+#' Plot ROC curve for particular model
+#' 
+#' @param y response vector
+#' @param p_hat model output probabilities
 plot_roc <- function(y, p_hat, modelnum="k j") {
     # ROC plots FP vs TP. To get curve we vary the threshold
     # FP = false positive rate = no. false positives / number of negatives
@@ -62,7 +75,8 @@ plot_roc <- function(y, p_hat, modelnum="k j") {
     legend("bottomright", legend=c("Chance", "Logistic Regression"), col=2:1, lty=2:1, cex=0.8)
 }
 
-# plots of parameter values by fold to compare.
+#' plots of parameter values by fold to compare and check consistency of models
+#' @param b matrix of coefficients (dxK)
 plot_coefs <- function(b) {
     d <- nrow(b)
     K <- ncol(b)
@@ -74,12 +88,3 @@ plot_coefs <- function(b) {
         points(1:d, b[,k], col=kcolours[k])
     }    
 }
-
-# plot scatter matrix
-# library(psych)
-# pairs.panels(head(X[no_missing, 1:10], 1000), 
-#              method = "pearson", # correlation method
-#              hist.col = "#00AFBB",
-#              density = TRUE,  # show density plots
-#              ellipses = TRUE # show correlation ellipses
-#              )

@@ -73,15 +73,13 @@ invert_angle_sign <- function(X) {
     return(X)
 }
 
-# add cake variables. doesn't work at the moment due to no overlapping event ids?!
-add_cake_features <- function(X, e_id) {
-    cake <- read.csv(file = "cake_features.csv")
-    X$"EventId" <- e_id
-    X <- merge(X, cake[,1:3])
-    return(X[, !(names(X) %in% "EventId")])
-}
-
-# add n_centroids RBF features to X
+#' Add n_centroids RBF features to X
+#' 
+#' @param X covariate matrix
+#' @param s median pairwise distance of points in X
+#' @param n_centroids number of RBF features to add
+#' @param Xi matrix of reference points to calculate RBF w.r.t 
+#' @return X augmented covariate matrix
 add_rbf_features <- function(X, s, n_centroids, Xi=NULL) {
     set.seed(1234)
     if (is.null(Xi)) {
@@ -95,6 +93,12 @@ add_rbf_features <- function(X, s, n_centroids, Xi=NULL) {
     return(X)
 }
 
+#' Get reference points for RBF centroids
+#' 
+#' @param X covariate matrix
+#' @param n_centroids number of RBF centroids
+#' @param idx [Optional] location of RBF centroid reference points
+#' @return list of Xi (centroid points) and idx (location of them)
 get_rbf_centroids <- function(X, n_centroids, idx=NULL) {
     n <- nrow(X)
     d <- ncol(X)
@@ -108,7 +112,12 @@ get_rbf_centroids <- function(X, n_centroids, idx=NULL) {
     return(list("xi"=Xi, "idx"=idx))
 }
 
-# rbf feature at some centroid i in 
+#' Compute single RBF feature at some centroid i in idx (or xi in Xi) 
+#' 
+#' @param X covariate matrix
+#' @param s median pairwise distance of points in X
+#' @param idx [Optional] location of reference centroid
+#' @param xi [Optional] reference centroid
 rbf_feature <- function(X, s, idx=NULL, xi=NULL) {
     n <- nrow(X)
     if (is.null(idx)) {
@@ -123,7 +132,10 @@ rbf_feature <- function(X, s, idx=NULL, xi=NULL) {
     return(rbf)
 }
 
-# calculate average of median pairwise distances, cycling over all pairs. this scales _really, really_ badly with n. don't do it!!!
+#' Calculate average of median pairwise distances for between all adjacent points
+#' 
+#' @param X covariate matrix
+#' @return s median pairwise distance
 avg_median_pairwise_distance <- function(X) {
     n <- nrow(X)
     X_perm <- X
@@ -135,19 +147,33 @@ avg_median_pairwise_distance <- function(X) {
     mean(s)
 }
 
-# calculate distance for each row of X0 and X1
+#' Calculate distance for each row of X0 and X1
+#' 
+#' @param X0 covariate matrix
+#' @param X1 covariate matrix
+#' @return vector of distances
 pairwise_distance <- function(X0, X1) {
     rowSums(apply((X0 - X1)^2, 2, unlist), na.rm=TRUE)
 }
 
-# cyclic permutation of rows of X by r rows
+#' Cyclic permutation of rows of X by r rows
+#' 
+#' @param X covariate matrix
+#' @param r number of rows to permute (default=1)
 permute_matrix <- function(X, r=1) {
     n <- nrow(X)
     X_perm <- rbind(X[(n-r+1):n,], X[1:(n-r),])
     return(X_perm)
 }
 
-# Partition data into (random) folds for cross-validation. Returns vector of indices denoting the OOS index, i_e. for rows with I_i=1, those are OOS for i=1
+#' Partition data into (random) folds for cross-validation. 
+#' 
+#' @param X covariate matrix
+#' @param y response vector
+#' @param K number of folds
+#' @param random flag to choose whether to randomly select
+#' @return I vector of integers denoting the OOS fold each row belongs to
+#' Returns vector of indices denoting the OOS index, i_e. for rows with I_i=1, those are OOS for i=1
 partition_data <- function(X, y, K, random=TRUE) {
     n <- max(nrow(X), ncol(X))
     rows_per_fold <- floor(n/K)
@@ -166,15 +192,27 @@ partition_data <- function(X, y, K, random=TRUE) {
     return(I)
 }
 
+#' Calculate logistic function
+#' @param x float
+#' @param return logistic(x)
 logistic <- function(x) {
     1/(1 + exp(-x))
 }
 
+#' Calculate logit function
+#' @param p float in [0,1]
+#' @return logit(p)
 logit <- function(p) {
     log(p/(1-p))
 }
 
-# fit a logistic regression model by IRWLS - same thing glm does. probably be useful to make this model into a class with a predict method and then we can interchange it with other models wth that interface
+#' Fit a logistic regression model by IRWLS - same thing glm does
+#' 
+#' @param X covariate matrix
+#' @param y response vector
+#' @param r [Optional] weight vector
+#' @param lambda [Optional] L2 regularisation parameter
+#' @return b vector of coefficients
 library(Matrix)
 logistic_reg <- function(X, y, r=NULL, lambda = 1e-3) {
     invlink <- logistic
@@ -214,48 +252,19 @@ logistic_reg <- function(X, y, r=NULL, lambda = 1e-3) {
     return(b)
 }
 
-# think we'll have a problem with data size... nxn will be massive. and it doesn't work
-kernel_logistic_reg <- function(K, y, lambda) {
-    invlink <- logistic
-    dinvlink <- function(x)  exp(x)/(1 + exp(x))^2
-    loss <- function(y, eta) -(y * eta) + log(1 + exp(eta))
-
-    n <- nrow(K)
-
-    a <- matrix(0, n, 1)
-    eta <- matrix(0, n, 1)
-    mu <- invlink(eta)
-    L <- sum(loss(y, eta)) - lambda * t(a) %*% K %*% K %*% a
-
-    maxIter <- 10
-    tol <- 1e-6
-
-    for (i in 1:maxIter) {
-        w <- pmax(dinvlink(eta), 1e-6)
-        W <- Diagonal(x = as.numeric(w))
-        H <- -K %*% W %*% K + 2 * lambda * K %*% K
-        grad <- K %*% (y - mu) + 2 * lambda * K %*% K %*% a
-
-        a <- a - solve(H, grad)
-        eta <- K %*% a
-        mu <- invlink(eta)
-        L_new <- sum(loss(y, eta)) - lambda * t(a) %*% K %*% K %*% a
-        
-        if (as.logical(abs(L - L_new) < tol)) {
-            print(sprintf("No. iterations: %d", i))
-            break
-        }
-        L <- L_new
-    }
-    return(a)
-
-}
-
-#define ckernels
+#' Define polynomial kernel
+#' @param x_i point in R^d
+#' @param x_j point in R^d
+#' @param b order of polynomial
+#' @return scalar of (1+x^Tx)^b
 poly_kernel <- function(x_i, x_j, b) {
     return((t(x_i) %*% x_j + 1)^b)
 }
 
+#' Define trigonometric kernel
+#' @param x_i point in R^d
+#' @param x_j point in R^d
+#' @param b order of polynomial
 trig_kernel <- function(x_i, x_j, b=0) {
     output <- 0
     for (k in 0:b) {
@@ -264,22 +273,34 @@ trig_kernel <- function(x_i, x_j, b=0) {
     return(sum(output))
 }
 
+#' Define linear kernel
+#' @param x_i point in R^d
+#' @param x_j point in R^d
 lin_kernel <- function(x_i, x_j, ...) {
     return(t(x_i) %*% x_j)
 }
 
+#' RBF kernel
+#' @param x_i point in R^d
+#' @param x_j point in R^d
+#' @param sigma bandwidth hyperparameter
 rbf_kernel <- function(x_i, x_j, sigma) {
     return(exp(-t(x_i - x_j) %*% (x_i - x_j) / (2 * sigma^2)))
 }
 
-# function to partially call kernel function to return the kernel function with it's hyperparameters set
+#' Function factory to partially call kernel function to return the kernel function with it's hyperparameters set
+#' @param ckernel kernel function with args (x_i,x_j,hyper)
+#' @return function with args (x_i,x_j)
 tuned_kernel <- function(ckernel, ...) {
     function(x_i, x_j){
         ckernel(x_i, x_j, ...)
     }
 }
 
-# Compute the kernel matrix over the (training) set X
+#' Compute the kernel matrix over the (training) set X
+#' @param X covariate matrix (nxd)
+#' @param ckernel kernel function with args (x_i, x_j)
+#' @return K kernel matrix (nxn)
 calc_K <- function(X, ckernel){
     n <- nrow(X)
     K <- matrix(, nrow=n, ncol=n)
@@ -291,7 +312,13 @@ calc_K <- function(X, ckernel){
     return(K)
 }
 
-# calculate predictions for test points by computing the kernel matrix over the training points and the kernel vector(/matrix) over test and training points
+#' Calculate predictions for test points by computing the kernel matrix over the training points and the kernel vector(/matrix) over test and training points
+#' 
+#' @param X_test matrix of covariate test points
+#' @param X_train matrix of covariate training points
+#' @param y response vector
+#' @param L ?
+#' @param ckernel kernel function k(x_i,x_j)
 svm_predict <- function(X_test, X_train, y, L, ckernel=lin_kernel) {
     X_test <- as.matrix(X_test)
     X_train <- as.matrix(X_train)
@@ -311,13 +338,16 @@ svm_predict <- function(X_test, X_train, y, L, ckernel=lin_kernel) {
     return(f)
 }
 
-# thresholding function
+#' Thresholding function
+#' 
+#' @param p vector of probabilities
+#' @param thresh threshold over which we assign output of 1
 decide <- function(p, thresh = 0.5) {
     label <- as.numeric(p > thresh)
     return(label)
 }
 
-# the AMS metric. note s = sum_{i in B \cup G}w_i and b = sum_{i in B \cup G}w_i; i.e. the sum of the weights of succesful signal classifications (TP) and the sum of the weights of incorrect signal classifications (FP) respectively
+#' the AMS metric. note s = sum_{i in B \cup G}w_i and b = sum_{i in B \cup G}w_i; i.e. the sum of the weights of succesful signal classifications (TP) and the sum of the weights of incorrect signal classifications (FP) respectively
 ams_metric <- function(s, b) {
     br <- 10
     sqrt(2 * (s + b + br) * log(1 + s/(b + br)) - s)
