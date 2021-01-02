@@ -217,7 +217,7 @@ library(Matrix)
 logistic_reg <- function(X, y, r=NULL, lambda = 1e-3) {
     invlink <- logistic
     dinvlink <- function(x)  exp(x)/(1 + exp(x))^2
-    loss <- function(y, eta) -(y * eta) + log(1 + exp(eta))
+    loss <- function(y, eta) log(1 + exp((-1)^y*eta))
 
     d <- ncol(X)
     n <- nrow(X)
@@ -227,7 +227,7 @@ logistic_reg <- function(X, y, r=NULL, lambda = 1e-3) {
     b <- matrix(0, d, 1)
     eta <- matrix(0, n, 1)
     mu <- invlink(eta)
-    L <- sum(loss(y, eta)) - lambda * t(b) %*% b
+    L <- sum(loss(y, eta)) + lambda * t(b) %*% b
 
     maxIter <- 10
     tol <- 1e-6
@@ -235,13 +235,13 @@ logistic_reg <- function(X, y, r=NULL, lambda = 1e-3) {
     for (i in 1:maxIter) {
         w <- pmax(dinvlink(eta), 1e-6)
         W <- Diagonal(x = as.numeric(w) * r)
-        H <- -t(X) %*% W %*% X + 2 * lambda * diag(rep(1, d))
-        grad <- t(X) %*% (y - mu) + 2 * lambda * b
+        H <- t(X) %*% W %*% X + 2 * lambda * diag(rep(1, d))
+        grad <- -t(X) %*% (y - mu) + 2 * lambda * b
 
         b <- b - solve(H, grad)
         eta <- X %*% b
         mu <- invlink(eta)
-        L_new <- sum(loss(y, eta)) - lambda * t(b) %*% b
+        L_new <- sum(loss(y, eta)) + lambda * t(b) %*% b
         
         if (as.logical(abs(L - L_new) < tol)) {
             print(sprintf("No. iterations: %d", i))
