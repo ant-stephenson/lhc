@@ -3,10 +3,10 @@
 \section{AMS}
 Is the AMS metric convex?
 \eq{
-    \rm{AMS} &= \sqrt{2(s+b)\log(1+\frac{s}{b})-s}
+    \rm{AMS} &= \sqrt{2\left((s+b)\log(1+\frac{s}{b})-s\right)}
 }
 
-In the documentation, the implication is that in general, we expect $b \geqq s$ giving the approximate AMS as $\rm{AMS} \sim \frac{s}{\sqrt{b}}(1+\mc{O}(\frac{s}{b}))$.
+In the documentation, the implication is that in general, we expect $b \gg s$ giving the approximate AMS as $\rm{AMS} \sim \frac{s}{\sqrt{b}}(1+\mc{O}(\frac{s}{b}))$.
 
 If we directly check the derivatives of the approximate AMS in the large $b$ regime:
 \eq{
@@ -18,31 +18,30 @@ which implies non-convexity (and non-concavity).
 
 To check more carefully though, calculate the terms of the Hessian of the original and then apply the approximation:
 \eq{
-    \pd_s\rm{AMS} &= \log(1+\frac{s}{b})\rm{AMS}^{-1} \\
-    \pd_b\rm{AMS} &= (\log(1+\frac{s}{b}) + sb)\rm{AMS}^{-1} \\
-    \pd_s^2\rm{AMS} &= \frac{1}{b+s}\rm{AMS}^{-1} - \log(1+\frac{s}{b})^2\rm{AMS}^{-3} \\
-    \pd_b^2\rm{AMS} &= (\frac{sb}{s+b}+s)\rm{AMS}^{-1} - (\log(1+\frac{s}{b}) + sb)^2\rm{AMS}^{-3} \\
-    \pd_{sb}^2 &= (\frac{1}{s+b}+b)\rm{AMS}^{-1} - \log(1+\frac{s}{b})(\log(1+\frac{s}{b}) + sb)\rm{AMS}^{-3}
+    \pd_s\rm{AMS} &= \rm{AMS}^{-1}\log\left(1+\frac{s}{b}\right) \\
+    \pd_b\rm{AMS} &= \rm{AMS}^{-1}\left(\log(1+\frac{s}{b}) -\frac{s}{b}\right) \\
+    \pd_s^2\rm{AMS} &= \rm{AMS}^{-1}\left(\frac{1}{b+s} - \rm{AMS}^{-2}\log(1+\frac{s}{b})^2\right) \\
+    \pd_b^2\rm{AMS} &= \rm{AMS}^{-1}\left(\frac{s^2}{b^2(s+b)} -\rm{AMS}^{-2}(\log(1+\frac{s}{b}) -\frac{s}{b})^2\right) \\
+    \pd_{sb}^2\rm{AMS} &= -\rm{AMS}^{-1}\left(\frac{s}{b(s+b)} - \rm{AMS}^{-2}\log(1+\frac{s}{b})(\log(1+\frac{s}{b}) -\frac{s}{b})\right)
 }
 and then verify whether any of them are ever $<0$.
 
 Using the AMS approximation, and $\log\left(1+\frac{s}{b}\right) \sim \frac{s}{b} - \half\left(\frac{s}{b}\right)^2$ we get the following
 \eq{
-    \pd_s^2\rm{AMS} &\sim \frac{1}{b+s}\frac{\sqrt{b}}{s} - \frac{b^{3/2}}{s^3}\frac{s^2}{b^2} \\
-    &\sim \frac{1}{sb^{3/2}} - \frac{1}{sb^\half} \\
+    \pd_s^2\rm{AMS} &\sim \frac{\sqrt{b}}{s}\left[\frac{1}{(b+s)} - \frac{b}{s^2}(\frac{s^2}{b^2} - \frac{s^3}{b^3})\right] \\
+    &= \frac{\sqrt{b}}{s(s+b)} - \frac{1}{s\sqrt{b}} + \frac{1}{b^{3/2}} \\
     < 0
 }
 Since in this regime of large $b$ this term is negative, the Hessian cannot be positive definite and hence the metric is non-convex. If the Hessian is \emph{concave} though, we can simply optimize $-\rm{AMS}$, so we need to check the other terms.
 
 \eq{
-    \pd_b^2\rm{AMS} &\sim \frac{sb}{s+b}\frac{\sqrt{b}}{s} + \sqrt{b} - \frac{b^{3/2}}{s^3}\left(\frac{s}{b} - \half\bigg(\frac{s}{b}\bigg)^2 + sb\right)^2 \\
-    &= \frac{b^{3/2}}{s+b} + \sqrt{b} - \frac{1}{s\sqrt{b}} - \frac{b^{7/2}}{s} - 2\frac{b^{3/2}}{s} + \sqrt{b} < 0
+    \pd_b^2\rm{AMS} &\sim \frac{\sqrt{b}}{s}\left[\frac{s^2}{b^2(s+b)} - \frac{b}{s^2}(\frac{1}{4}\frac{s^4}{b^4})\right] \\
+    &= \frac{s}{b^{3/2}(s+b)} - \frac{1}{4}\frac{s}{b^{5/2}} > 0
 }
 
 \eq{
-    \pd_{bs}^2\rm{AMS} &\sim \frac{\sqrt{b}}{s(s+b)}+\frac{b^{3/2}}{s} - \frac{b^{3/2}}{s^3}\left(\frac{s}{b}-\half\bigg(\frac{s}{b}\bigg)^2\right)\left(\frac{s}{b}-\half\bigg(\frac{s}{b}\bigg)^2 + sb\right) \\
-    &\sim \frac{1}{s\sqrt{b}}\left(1-\frac{s}{b}\right) + \frac{b^{3/2}}{s} - \frac{1}{s\sqrt{b}} + \half\sqrt{b} - \frac{b^{3/2}}{s} \\
-    &\sim -\frac{1}{b^{3/2}} + \half\sqrt{b} > 0
+    \pd_{bs}^2\rm{AMS} &\sim -\frac{\sqrt{b}}{s}\left[\frac{s}{b(s+b)} + \frac{b}{s^2}(\frac{s}{b} -\half\frac{s}{b^2})(-\half\frac{s^2}{b^2})\right] \\
+    &= \frac{1}{2b^{3/2}}(1-\half s) - \frac{1}{\sqrt{b}(s+b)} < 0
 }
 
 \section{Modelling}
