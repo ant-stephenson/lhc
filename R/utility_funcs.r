@@ -347,13 +347,22 @@ decide <- function(p, thresh = 0.5) {
     return(label)
 }
 
-#' the AMS metric. note s = sum_{i in B \cup G}w_i and b = sum_{i in B \cup G}w_i; i.e. the sum of the weights of succesful signal classifications (TP) and the sum of the weights of incorrect signal classifications (FP) respectively
+#' the AMS metric. 
+#' note s = sum_{i in B \cup G}w_i and b = sum_{i in B \cup G}w_i; 
+#' i.e. the sum of the weights of succesful signal classifications (TP) 
+#' and the sum of the weights of incorrect signal classifications (FP) respectively
+#' @param s count of true positives
+#' @param b count of false positives
 ams_metric <- function(s, b) {
     br <- 10
-    sqrt(2 * (s + b + br) * log(1 + s/(b + br)) - s)
+    sqrt(2 * ((s + b + br) * log(1 + s/(b + br)) - s))
 }
 
-# need to make sure dims of y, y_hat and w are the same
+#' Count the number of true positives
+#' need to make sure dims of y, y_hat and w are the same
+#' @param y response vector
+#' @param y_hat predicted response vector
+#' @param w weights
 count_s <- function(y, y_hat, w) {
     stopifnot(length(y) == length(y_hat))
     stopifnot(length(y) == length(w))
@@ -361,6 +370,11 @@ count_s <- function(y, y_hat, w) {
     return(s)
 }
 
+#' Count the number of false positives
+#' need to make sure dims of y, y_hat and w are the same
+#' @param y response vector
+#' @param y_hat predicted response vector
+#' @param w weights
 count_b <- function(y, y_hat, w) {
     stopifnot(length(y) == length(y_hat))
     stopifnot(length(y) == length(w))
@@ -368,6 +382,10 @@ count_b <- function(y, y_hat, w) {
     return(b)
 }
 
+#' Calculate the AMS
+#' @param y response vector
+#' @param y_hat predicted response vector
+#' @param w weights
 calculate_ams_partition <- function(y, y_hat, w) {
     y_hat <- as.numeric(y_hat)
     s <- count_s(y, y_hat, w)
@@ -376,11 +394,4 @@ calculate_ams_partition <- function(y, y_hat, w) {
     return(ams)
 }
 
-calculate_oos_ams <- function(y, y_hat, w, kI) {
-    ams <- 0
-    for (k in 1:max(kI)) {
-        ams <- ams + calculate_ams_partition(y[kI == k], y_hat[kI == k], w[kI == k])
-    }
-    return(ams)
-}
 
