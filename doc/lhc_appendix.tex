@@ -47,32 +47,76 @@ Since in this regime of large $b$ this term is negative, the Hessian cannot be p
 
 \section{Modelling}
 
-\subsection{Kernel Logistic Regression}
-\textcolor{red}{This doesn't quite work. Maybe we can just solve dual problem for $\alpha$ directly? just need to be careful with formulation/signs}
+\subsection{Newton's Method for Logistic Regression}
 
-Given a Newton update of
+From the conditional distribution under the logistic regression model for a single point $\xv \in R^d$, $y \in \{+1,-1\}$ and coefficients $\betav \in R^d$.
 \eq{
-    \bm{\beta}_{k+1} \leftarrow \bm{\beta}_k - \bm{H}^{-1}\bm{g}
-}
-where $\bm{H}$ is the Hessian and $\bm{g}$ is the gradient of the loss function we can write out what these terms are for logistic regression and then apply the Woodbury identity to transform them into a kernelised version.
-
-For logistic regression:
-\eq{
-    \bm{H} &= -\Xv^T\bm{W}\Xv + \lambda\Iv \\
-    \bm{g} &= \Xv^T(\yv-\bm{\mu}) + \lambda\bm{\beta} \\
-    \bm{\beta}_{k+1} &= \bm{\beta}_k + (\Xv^T\bm{W}\Xv + \lambda\Iv)^{-1}\left(\Xv^T(\yv - \bm{\mu}) + \lambda\bm{\beta}_k\right) \\
-    &= \bm{\beta}_k + \delta\bm{\beta}_k
+    p(y\given \xv, \betav) &= \sigma(f(\xv;\betav)\cdot y) \\
+    &= (1 + \exp(y\inprod{\xv}{\betav}))^{-1}
 }
 
-Now applying two versions of Woodbury and replacing the feature matrix $\Xv$ with the transformed matrix $\Phiv$:
+We want to minimise the negative loglikelihood:
 \eq{
-    \delta\bm{\beta}_k &= \frac{1}{\lambda}\Iv\Phiv^T(\Phiv\frac{1}{\lambda}\Iv\Phiv^T + \bm{W}^{-1})^{-1}\bm{W}^{-1}(\yv-\bm{\mu}) + (\frac{1}{\lambda}\Iv - \frac{1}{\lambda}\Iv\Phiv^T(\bm{W}^{-1} + \Phiv\frac{1}{\lambda}\Iv\Phiv^T)^{-1}\Phiv\frac{1}{\lambda}\Iv)\lambda\bm{\beta}_k \\
-    &= \Phiv^T(\Phiv\Phiv^T + \lambda\bm{W}^{-1})^{-1}\bm{W}^{-1}(\yv-\bm{\mu}) + (\Iv - \Phiv^T(\Phiv\Phiv^T + \lambda\bm{W}^{-1})^{-1}\Phiv)\lambda\bm{\beta}_k
+    l(\xv, y, \betav) &= \log(1 + \e^{y\inprod{\xv}{\xv}}) \\
+    \pd_{\beta_a} l &= \frac{yx_a\e^{y\inprod{\xv}{\betav}}}{1 + \e^{y\inprod{\xv}{\betav}}} \\
+    \pd^2_{\beta_a \beta_b}l &= \frac{y^2x_ax_b\e^{y\inprod{\xv}{\betav}}}{(1+\e^{y\inprod{\xv}{\betav}})^2}\left( 1 + \e^{y\inprod{\xv}{\betav}} - \e^{y\inprod{\xv}{\betav}}\right) \\
+    &= \frac{x_ax_b\e^{y\inprod{\xv}{\betav}}}{(1+\e^{y\inprod{\xv}{\betav}})^2}\\
+    &= x_ax_bw(x)
 }
-Now defining a kernel matrix $\Kv = \Phiv\Phiv^T$:
+where in the last line we define a weight function $w(x) = \frac{\e^x}{(1+\e^x)^2}$.
+
+To implement Newton's method we want to try and simplify the expressions. First define the logistic and logit functions as
 \eq{
-    \delta\bm{\beta}_k &= 
+    \gamma(x) &= (1+\e^{-x})^{-1} \\
+    \gamma^{-1}(p) &= \log\left(\frac{p}{1-p}\right)
+}
+and then write out the derivatives in terms of the logistic function:
+\eq{
+    \pd_{\beta_a} l(y=+1) &= x_a\gamma(\inprod{\xv}{\betav}) \\
+    \pd_{\beta_a} l(y=-1) &= -x_a(1-\gamma(\inprod{\xv}{\betav})
+}
+If we then map $y \in \{1,-1\}$ to $y' \in \{0,1\}$ we can condense these into a single expression
+\eq{
+    \pd_{\beta_a} l(y) &= -x_a(y - \gamma(\inprod{\xv}{\betav}))
+}
+and rewrite the loss as $l(y') = \log(1+\e^{(-1)^{y'}\inprod{\xv}{\betav}})$.
+
+Now for our entire dataset $D$, assumed to be IID, we have a total loss, gradient and Hessian
+\eq{
+    L &= \sum_{i \in D}l_i = \sum_{i \in D}\log(1+\e^{y_i\inprod{\xv_i}{\betav}})\\
+    \pd_{\betav}L &= -\sum_{i \in D}\xv_i(y_i - \gamma(\inprod{\xv_i}{\betav})) \\
+    &= -\Xv^T(\yv-\gamma(\Xv\betav)) \\
+    \bm{H} &= \sum_{i \in D}\xv_i\xv_i^Tw(\xv_i)\\
+    &= \Xv^T\bm{W}\Xv
+}
+with $\Xv = \bp \xv_1^T \\ \vdots \\ \xv_n^T \ep \in R^{n\times d}$, $\bm{W} = \diag(w(\xv)) \in R^{n\times n}$.
+
+\subsubsection{Regularisation}
+We can add constraints to our minimisation problem, to help constrain the coefficients and effectively implement $L_2$ regularisation by formulating the following convex optimisation problem.
+\eq{
+    \min. &\quad L \\
+    \st &\quad \norm{\betav}^2\leq c
+}
+From this we can construct the Lagrangian $\mc{L} = L + \lambda(\norm{\betav}^2 - c)$ and hence augment the gradient and Hessian we calculated above as
+\eq{
+    \pd_{\betav}\mc{L} &= \pd_{\betav}L + 2\lambda\betav \\
+    \bm{\tilde{H}} &= \bm{H} + 2\lambda\Iv
 }
 
+Since we have a free parameter $c$ that determines the optimal value $\lambda^\star(c)$ of our dual variable, we can equivalently ignore $c$ and treat $\lambda$ as a parameter to be tuned.
+
+\subsubsection{Newton's method}
+
+\begin{algorithm}[H]
+    1. Initialise parameters; $\betav_0$, $\lambda_0$, $\eps$, $L_0 = L(\betav_0)$, $m$\\
+    2. \For{i=1:m}{
+        Compute $\pd_{\betav}L$ and $\bm{H}$\\
+        Calculate Newton step $\Delta\betav = -\bm{H}^{-1}\pd_{\betav}L$\\
+        Compute new loss $L$ \\
+        Test stopping criterion: $|L-L_0| < \eps$
+    } 
+    3. Return $\hat{\betav}$.
+    \caption{Newton's method}
+\end{algorithm}
 
 \end{appendices}
