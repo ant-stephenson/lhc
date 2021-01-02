@@ -10,7 +10,7 @@
 \rhead{}
 \lhead{}
 
-\author{...}
+\author{Mansell, Georgie \and Stephenson, Ant}
 \date{\today}
 \title{Something something Higgs boson}
 
@@ -20,10 +20,89 @@
     ...
 \end{abstract}
 
+\section{Introduction}
+After the theoretical discovery of the Higgs mechanism and the associated particle, the Higgs boson, experimental confirmation of the prediction became a much sought-after prize in High Energy Physics. Although the theory was more or less accepted by the theoretical community since its inception in the 1960s, experimental evidence was required for verification. 
+
+Once CERN's Large Hadron Collider (LHC) emerged on the scene, with the necessary power to probe higher energy regimes of collisions, vast amounts of data started to be collected. In order to verify the theoretical predictions of particle physics, this data needed to be anaylsed carefully to try and distinguish signal of as-yet unknown particle decays vs effectively ``proven'' existing decays. The accepted threshold for a discovery in particle physics is the ``gold-standard'' 5-sigma rule. As a result, any announcement of a new experimental discovery (such as the Higgs boson) was required to meet this threshold. 
+
+For the Higgs boson in particular, various decay mechanisms were proposed that could be used to demonstrate its existence by comparing the rate of the by-products of those decays vs background mechanisms (that do not involve the Higgs). In 2013, when the Higgs was experimentally discovered by CERN, the evidence was provided by \emph{bosonic} decays from the Higgs to the following pairs, $\gamma\gamma$, $WW$ and $ZZ$. 
+
+The goal here is to instead examine the coupling of the Higgs to fermions, to verify that their mass can likewise be explained by the Higgs mechanism. Specifically, here the aim is to analyse the decay $H\rightarrow\tau\tau$; i.e. the decay of the Higgs to a pair of tau-flavour leptons. (The other candidates, electrons and muons fall outside the energy range of the LHC due to their lighter mass).
+
+\section{Theoretical Background}
+\subsection{Physics}
+Not sure how much we actually need to include.
+
+\subsection{Statistics}
+Likewise.
+
+\section{Method}
+
+\subsection{Missing Data}
+Early examinations of the dataset revealed the presence of a significant quantity of missing data. Elements of the data matrix recorded as missing were labelled by a value of -999. Before embarking on any model building or even feature engineering we analysed the missing values to try and ascertain whether there was any pattern to their locations. From the definitions of covariates in the dataset it was possible to infer potential causes of missing data. In particular, the estimated mass of the Higgs ($DER\_mass\_MMC$) ``(may be undefined if the topology of the event is too far from the expected topology)", indicates that this feature may be expected to be labelled as missing. Similarly, a set of the features mention a dependence on the number of jets measured in the interaction:
+
+\begin{description}
+    \item[$DER\_deltaeta\_jet\_jet$] undefined if $PRI\_jet\_num \leq 1$
+    \item[$DER\_mass\_jet\_jet$] undefined if $PRI\_jet\_num \leq 1$
+    \item[$DER\_prodeta\_jet\_jet$] undefined if $PRI\_jet\_num \leq 1$
+    \item[$PRI\_jet\_subleading\_pt$] undefined if $PRI\_jet\_num \leq 1$
+    \item[$PRI\_jet\_subleading\_phi$] undefined if $PRI\_jet\_num \leq 1$
+    \item[$PRI\_jet\_subleading\_eta$] undefined if $PRI\_jet\_num \leq 1$
+    \item[$DER\_lep\_eta\_entrality$] undefined if $PRI\_jet\_num \leq 1$
+    \item[$PRI\_jet\_leading\_pt$] undefined if $PRI\_jet\_num = 0$
+    \item[$PRI\_jet\_leading\_eta$] undefined if $PRI\_jet\_num = 0$
+    \item[$PRI\_jet\_leading\_phi$] undefined if $PRI\_jet\_num = 0$   
+\end{description}
+
+So we can see that the missing data is explained by the combination of an unexpected topology and the number of jets observed. This implies that the physical data generating process is different in each of these regimes and that we ought to treat them differently in accordance. As such we chose to attempt to build a separate model for each regime. 
+
+\subsection{Performance Metrics}
+\subsubsection{AMS}
+
+\subsubsection{ROC and AUC}
+
+\subsection{Logistic Regression}
+
+\subsection{SVM}
+
+\subsection{Feature Engineering}
+In order to improve the performance of our model, we attempted to carry out some feature engineering to extract as much information as possible from the dataset.
+
+\subsubsection{Redundancy}
+By considering the basic physics of the beam it is possible to see that there is some redundancy amongst the (primitive) features in the dataset. We can exploit this fact and reduce our initial feature space slightly, by transforming the redundant features into a set of new derived features that contain the same information. 
+
+\subsubsection{Higher-Order Effects}
+To attempt to capture generic higher order interaction-type effects, we implemented a set of RBF centroid features. The implementation works as follows 
+\begin{algorithm}[H]
+    1. Generate heuristic estimate of RBF hyperparameter $s$.\\
+    2. Select $n_c$ points from $\Xv_{train}$, $\Xv_c = \{\xv^{train}_i, \dots, \xv^{train}_{n_c}\}$.\\
+    3. \For{i=1:$n_c$}{
+        Calculate $\kv_{RBF}(\xv^{train}_i, \Xv_{train}; s)$\\
+        $\Xv_{train} \leftarrow \Xv_{train} \oplus \kv_{RBF}(\xv^{train}_i, \Xv_{train}; s)$
+    } 
+    4. Fit model.\\
+    5. \For{i=1:$n_c$}{
+        Calculate $\kv_{RBF}(\xv^{train}_i, \Xv_{test}; s)$\\
+        $\Xv_{test} \leftarrow \Xv_{test} \oplus \kv_{RBF}(\xv^{train}_i, \Xv_{test}; s)$
+    }
+    \caption{Augment covariate matrix with RBF centroid features}
+\end{algorithm}
+
+\subsubsection{Transformations}
+
+\subsubsection{Interactions}
+
+\section{Results}
+\subsection{Feature Engineering}
+
+
+
+\section{Conclusion}
+
 \pagebreak 
 
 \input{lhc_appendix}
-% \bibliography{compass_bib.bib}{}
-% \bibliographystyle{plain}
+\bibliography{lhc.bib}{}
+\bibliographystyle{plain}
 
 \end{document}
