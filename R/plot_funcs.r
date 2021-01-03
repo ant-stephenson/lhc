@@ -88,3 +88,63 @@ plot_coefs <- function(b) {
         points(1:d, b[,k], col=kcolours[k])
     }    
 }
+
+ROC_curve <- setRefClass("ROC_curve",
+                                 fields = c(
+                                   thresholds = "numeric",
+                                   FP = "numeric",
+                                   TP = "numeric",
+                                   auc = "numeric"))
+
+ROC_curve$methods(
+  initialize = function(y, p_hat){
+    #we want just a set of thresholds that vary FP and FN rate from 0 to 1
+    
+    #order samples by p_hat
+    y <- y[order(p_hat)]
+    p_hat <- p_hat[order(p_hat)]
+    
+    #find 50 evenly spaced values from the list of probabilities, including 0, lowest, highest and 1
+    indices <- 1 + 0:47 * (length(y)-1)/47
+    .self$thresholds <- c(0, p_hat[round(indices)], 1)
+  
+    #for each threshold, calculate the false positive rate and false negative rate
+    FPr <- rep(NA, 50)
+    TPr <- rep(NA, 50)
+    for(i in 1:50){
+        FPr[i] <- sum(p_hat > thresholds[i] & y == 0) / sum(y == 0)
+        TPr[i] <- sum(p_hat > thresholds[i] & y == 1) / sum(y == 1)
+    }
+    .self$FP <- FPr
+    .self$TP <- TPr
+    .self$auc <- 0
+  },
+  
+  calc_auc = function(){
+    if(.self$auc == F){
+      #using the trapezoidal rule to integrate the roc curve to find the auc
+      #since we only have points not a curve I think this is approach is sufficent
+      #note that the points go from right to left on the curve (so FP[i] > FP[i+1])
+      AUC <- 0 
+      for(i in 1:(length(FP)-1)){
+        h <- FP[i] - FP[i+1]
+        AUC <- AUC + (h/2 * (TP[i] + TP[i+1]))
+      }
+      .self$auc <- AUC
+      return(AUC)
+    }
+  },
+  
+  #define a method to plot the roc (if add is true, only the new roc line is plotted)
+  plot_curve = function(title="auc", add=FALSE){
+    if(title=="auc"){
+      title <- paste("AUC:", round(.self$auc,2))
+    }
+    if(add==FALSE){
+      plot(0:1, 0:1, type="l", lty=2, col="red", xlab="False Positive Rate", 
+           ylab="True Positive Rate", main=title)
+      legend("bottomright", legend=c("Chance", "Logistic Regression"), col=2:1, lty=2:1)
+    }
+    lines(.self$FP, .self$TP)
+  }
+)
