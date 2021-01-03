@@ -1,0 +1,247 @@
+---
+title: "Feature selection"
+author: "Anthony Stephenson"
+date: "1/3/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Load packages
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(Matrix)
+library(fs)
+
+source("utility_funcs.r")
+source("plot_funcs.r")
+source("model_funcs.r")
+```
+
+Load the data
+```{r load data}
+# divide data into training kaggle set, and retain hold-out (before further cross-validation partitioning)
+source_path <- path_join(c(path_dir(path_dir(getwd()))))
+filename <- "atlas-higgs-challenge-2014-v2.csv"
+filepath <- path_join(c(source_path, "LHC_dump", "R", filename))
+data <- import_data(filepath)
+```
+
+```{r training set}
+X <- data$X[data$kaggle_s == "t", ]
+y <- data$y[data$kaggle_s == "t"]
+# need to use kaggle weignts to make AMS correct?!
+kaggle_w <- data$kaggle_w[data$kaggle_s == "t"]
+w <- data$kaggle_w[data$kaggle_s == "t"]
+nj <- data$nj[data$kaggle_s == "t"]
+e_id <- data$e_id[data$kaggle_s == "t"]
+```
+
+```{r public leaderboard set}
+# public leaderboard set
+Xb <- data$X[data$kaggle_s == "b", ]
+yb<- data$y[data$kaggle_s == "b"]
+wb <- data$kaggle_w[data$kaggle_s == "b"]
+njb <- data$nj[data$kaggle_s == "b"]
+```
+
+Apply some feature engineering
+```{r add features}
+# modify features
+X <- reduce_features(X)
+X <- invert_angle_sign(X)
+Xb <- reduce_features(Xb)
+Xb <- invert_angle_sign(Xb)
+
+n_rbf <- 10
+s <- avg_median_pairwise_distance(X)
+```
+
+Use missing data pattern to partition data
+```{r jet/missing}
+# get missing rows. separate by number of jets and presence of Higgs mass and fit separate models
+# find columns with features with any missing values for each number of jets: 0, 1, 2+ in combination with the presence (or absence) of the Higgs mass, defined by j=1,2,3, 4, 5, 6. i.e. j=1 => nj=0 & mH != -999, j=2 => 
+jet_cats <- c(1:3, 1:3)
+idx_jet_cat <- function(nj, j) {
+    if (j == 1) {
+        nj == 0
+    } else if (j == 2) {
+        nj == 1
+    } else if (j == 3) {
+        nj >= 2
+    } else {stop("Incorrect jet category specified")}
+}
+idx_higgs_mass <- function(X, j) {
+    # for j>3 take rows with Higgs missing (and drop Higgs)
+    is_missing <- is.na(X$"DER_mass_MMC")
+    if (j > 3) {
+        return(!is_missing)
+    } else {return(is_missing)}
+    
+}
+features_to_rm <- list(list(), list(), list())
+for (mj in 1:6) {
+    j <- jet_cats[mj]
+    features_to_rm[[mj]] <- colnames(X)[colSums(is.na(X[idx_jet_cat(nj, j) & idx_higgs_mass(X, mj),])) > 0]
+}
+```
+
+Set CV indices
+```{r init CV}
+# K-Fold CV partitioning
+K <- 5
+kI <- partition_data(length(y), K, random = TRUE)
+```
+
+Initialise parameters
+```{r init param}
+n <- nrow(X)
+d <- ncol(X) + n_rbf
+
+lambda <- 1e-3
+b <- matrix(, nrow=d, ncol=6 * K)
+ams <- rep(NA, length=6*K)
+auc <- rep(NA, length=6*K)
+
+sum_w <- sum(w)
+```
+
+```{r test, include=FALSE}
+K <- 5
+midx <- matrix(, nrow=6*K,ncol=2)
+  for (j in 1:6) {
+    for (k in 1:K) {
+      idx <- get_model_idx(k, j, K)
+      midx[idx,] <- inv_model_idx(idx, K)
+    }
+  }
+midx
+```
+
+
+Count the number of rows of data in each category and fold, with the first column being the training set and the second being the test for each fold/category
+```{r number of rows}
+n_rows_p_partition <- matrix(, nrow=6*K, ncol=2)
+for (mj in 1:6) {
+    # loop over sets of jet number {0, 1, 2+} and mH presence/absence
+    for (k in 1:K) {
+        j <- jet_cats[mj]
+        fit_row_idx <- kI != k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
+        test_row_idx <- kI == k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
+
+        model_idx <- get_model_idx(mj, k, K)
+
+        n_rows_p_partition[model_idx, 1] <- sum(fit_row_idx)
+        n_rows_p_partition[model_idx, 2] <- sum(test_row_idx)
+    }
+}
+n_rows_p_partition
+```
+
+Run models
+```{r fitting}
+# loop over folds
+#create lists to hold the k models and k roc curves
+models <- vector("list", k)
+rocs <- vector("list", k)
+# check warnings?
+par(mfrow=c(2, 3))
+for (mj in 1:6) {
+    # loop over sets of jet number {0, 1, 2+} and mH presence/absence
+    for (k in 1:K) {
+        j <- jet_cats[mj]
+        fit_row_idx <- kI != k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
+        test_row_idx <- kI == k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
+
+        # add r RBF centroid features, using the same reference centroids in training and testing sets
+        rbf_centroids <- get_rbf_centroids(X[fit_row_idx, ], n_rbf)
+        Xi <- rbf_centroids$"xi"
+        Xtrain <- add_rbf_features(X[fit_row_idx, ], s, n_rbf, Xi=Xi)
+        Xtest <- add_rbf_features(X[test_row_idx, ], s, n_rbf, Xi=Xi)
+
+        col_idx <- get_valid_cols(names(Xtrain), features_to_rm, mj)
+
+        Xtrain <- as.matrix(Xtrain[, col_idx])
+        Xtest <- as.matrix(Xtest[, col_idx])
+
+        model_idx <- get_model_idx(mj, k, K)
+
+        #fit a logistic regression model to the CV training data
+        models[[model_idx]] <- logistic_model$new(X=Xtrain, y=y[fit_row_idx])
+  
+        #use it to predict the classifications of the test data
+        p_hat <- models[[model_idx]]$predict(Xtest)
+
+        #create an ROC curve object
+        rocs[[model_idx]] <- ROC_curve$new(y[test_row_idx], p_hat)
+        
+        # probably want to tune the threshold? why does (very) low threshold give better ams?
+        y_hat <- decide(p_hat, thresh = 0.4)
+
+        ams[model_idx] <- calculate_ams_partition(y[test_row_idx], y_hat, w[test_row_idx], sum_w=sum_w)
+    }
+}
+#find average auc
+average_auc <- mean(sapply(rocs, function(x) x$calc_auc()))
+
+#get a plot of the k ROC curves on the same axis
+rocs[[1]]$plot_curve(title=paste("All training data, 5-fold CV, Average AUC", round(average_auc, 3)))
+for(i in 1:k){
+  rocs[[i]]$plot_curve(add=T)
+}
+```
+
+Average coefficients over folds
+```{r avg coef}
+# average coefficients over folds. just getting NA atm, suggesting something is going wrong with missing values
+average_coefficients_over_folds <- function(b, K) {
+    b_sum <- matrix(, nrow=6, ncol=ncol(b))
+    for (i in 1:nrow(b)) {
+        kj <- inv_model_idx(i)
+        j <- kj[2]
+        b_sum[j,] <- colSums(rbind(b_sum[j,,drop=FALSE],b[i,,drop=FALSE]), na.rm=TRUE)
+    }
+    return(b_sum/K)
+}
+
+b_avg <- average_coefficients_over_folds(b, K)
+```
+
+Test of public leaderboard
+```{r public}
+amsb <- rep(NA, length=6)
+aucb <- rep(NA, length=6)
+
+# check warnings
+sum_wb <- sum(wb)
+for (mj in 1:6) {
+    j <- jet_cats[mj]
+    test_row_idx <- idx_jet_cat(njb, j) & idx_higgs_mass(Xb, mj)
+
+    # add r RBF centroid features, using the same reference centroids in training and testing sets
+    Xtest <- add_rbf_features(Xb[test_row_idx, ], s, n_rbf, Xi=Xi)
+
+    col_idx <- get_valid_cols(names(Xtest), features_to_rm, mj)
+
+    Xtest <- as.matrix(Xtest[, col_idx])
+
+    model_idx <- get_model_idx(k, mj)
+    p_hat <- logistic(Xtest %*% b_avg[col_idx, model_idx])
+
+    # calculate AUC
+    ROC <- compute_roc(yb[test_row_idx], p_hat)
+    aucb[model_idx] <- compute_AUC(ROC[[1]], ROC[[2]])
+
+    # view the ROC plot for each model
+    plot_roc(yb[test_row_idx], p_hat, modelnum=paste(k,mj))
+    
+    # probably want to tune the threshold? why does (very) low threshold give better ams?
+    y_hat <- decide(p_hat, thresh = 0.5)
+
+    amsb[model_idx] <- calculate_ams_partition(yb[test_row_idx], y_hat, wb[test_row_idx], sum_w=sum_wb)
+}
+```
