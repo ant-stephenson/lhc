@@ -168,28 +168,41 @@ permute_matrix <- function(X, r=1) {
 
 #' Partition data into (random) folds for cross-validation. 
 #' 
-#' @param X covariate matrix
-#' @param y response vector
-#' @param K number of folds
+#' @param n number of rows
+#' @param k number of folds
 #' @param random flag to choose whether to randomly select
-#' @return I vector of integers denoting the OOS fold each row belongs to
+#' @return ind vector of integers denoting the OOS fold each row belongs to
 #' Returns vector of indices denoting the OOS index, i_e. for rows with I_i=1, those are OOS for i=1
-partition_data <- function(X, y, K, random=TRUE) {
-    n <- max(nrow(X), ncol(X))
-    rows_per_fold <- floor(n/K)
-    I <- rep(1, n)
-    rem_ind <- 1:n
-    for (k in 1:K){
-        if (random) {
-            ind <- sample(rem_ind, rows_per_fold)
-            rem_ind <- setdiff(rem_ind, ind)
-        }
-        else {
-            ind <- ((k - 1) * rows_per_fold + 1):(k * rows_per_fold)
-        }
-        I[ind] <- k
+partition_data <- function(n, k, random=FALSE){
+    #minimum size of the group
+    size <- floor(n/k)
+    
+    #number of remaining points after even division
+    remainder <- n %% k
+    
+    #repeat 1:k size times, then 1:remainder (makes a vector length n)
+    ind <- c(rep(seq(1:k), size), seq(1, remainder, length.out = remainder))
+    
+    #if you want, shuffle the index
+    if(random==T){
+        ind <- ind[sample(ind)]
     }
-    return(I)
+}
+
+# helper function to get the index corresponding to the model built on folds {l !=k} and for jet number j {1,2,3}, ordering columns by fold and then with nesting on j i.e. first six cols are k=1, j=1,2,3; k=2, j=1,2,3; etc
+get_model_idx <- function(k, j, K) {
+    K*(j-1) + k
+}
+
+inv_model_idx <- function(idx, K) {
+    # assumes indexing loops internally over j and externally over k
+    j <-  ceiling(idx/5)
+    k <- idx - 5*(j-1)
+    return(c(j, k))
+}
+
+get_valid_cols <- function(header, features_to_rm, j) {
+    match(setdiff(header, features_to_rm[[j]]), header)
 }
 
 #' Calculate logistic function
@@ -204,52 +217,6 @@ logistic <- function(x) {
 #' @return logit(p)
 logit <- function(p) {
     log(p/(1-p))
-}
-
-#' Fit a logistic regression model by IRWLS - same thing glm does
-#' 
-#' @param X covariate matrix
-#' @param y response vector
-#' @param r [Optional] weight vector
-#' @param lambda [Optional] L2 regularisation parameter
-#' @return b vector of coefficients
-library(Matrix)
-logistic_reg <- function(X, y, r=NULL, lambda = 1e-3) {
-    invlink <- logistic
-    dinvlink <- function(x)  exp(x)/(1 + exp(x))^2
-    loss <- function(y, eta) log(1 + exp((-1)^y*eta))
-
-    d <- ncol(X)
-    n <- nrow(X)
-
-    if (is.null(r)) {r <- rep(1,n)}
-
-    b <- matrix(0, d, 1)
-    eta <- matrix(0, n, 1)
-    mu <- invlink(eta)
-    L <- sum(loss(y, eta)) + lambda * t(b) %*% b
-
-    maxIter <- 10
-    tol <- 1e-6
-
-    for (i in 1:maxIter) {
-        w <- pmax(dinvlink(eta), 1e-6)
-        W <- Diagonal(x = as.numeric(w) * r)
-        H <- t(X) %*% W %*% X + 2 * lambda * diag(rep(1, d))
-        grad <- -t(X) %*% (y - mu) + 2 * lambda * b
-
-        b <- b - solve(H, grad)
-        eta <- X %*% b
-        mu <- invlink(eta)
-        L_new <- sum(loss(y, eta)) + lambda * t(b) %*% b
-        
-        if (as.logical(abs(L - L_new) < tol)) {
-            print(sprintf("No. iterations: %d", i))
-            break
-        }
-        L <- L_new
-    }
-    return(b)
 }
 
 #' Define polynomial kernel
@@ -386,7 +353,10 @@ count_b <- function(y, y_hat, w) {
 #' @param y response vector
 #' @param y_hat predicted response vector
 #' @param w weights
-calculate_ams_partition <- function(y, y_hat, w) {
+#' @param sum_w total sum of weights for renormalisation
+#' @return ams
+calculate_ams_partition <- function(y, y_hat, w, sum_w=1) {
+    w <- w * sum_w/sum(w)
     y_hat <- as.numeric(y_hat)
     s <- count_s(y, y_hat, w)
     b <- count_b(y, y_hat, w)
