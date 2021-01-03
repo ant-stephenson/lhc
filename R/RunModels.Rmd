@@ -103,7 +103,6 @@ n <- nrow(X)
 d <- ncol(X) + n_rbf
 
 lambda <- 1e-3
-b <- matrix(, nrow=d, ncol=6 * K)
 ams <- rep(NA, length=6*K)
 auc <- rep(NA, length=6*K)
 
@@ -146,8 +145,9 @@ Run models
 ```{r fitting}
 # loop over folds
 #create lists to hold the k models and k roc curves
-models <- vector("list", k)
-rocs <- vector("list", k)
+models <- vector("list", 6*K)
+rocs <- vector("list", 6*K)
+b <- matrix(, nrow=d, ncol=6 * K)
 # check warnings?
 par(mfrow=c(2, 3))
 for (mj in 1:6) {
@@ -172,6 +172,7 @@ for (mj in 1:6) {
 
         #fit a logistic regression model to the CV training data
         models[[model_idx]] <- logistic_model$new(X=Xtrain, y=y[fit_row_idx])
+        b[col_idx, model_idx] <- models[[model_idx]]$coeffs
   
         #use it to predict the classifications of the test data
         p_hat <- models[[model_idx]]$predict(Xtest)
@@ -185,33 +186,66 @@ for (mj in 1:6) {
         ams[model_idx] <- calculate_ams_partition(y[test_row_idx], y_hat, w[test_row_idx], sum_w=sum_w)
     }
 }
-#find average auc
-average_auc <- mean(sapply(rocs, function(x) x$calc_auc()))
+```
+```{r avg auc and plot roc}
 
-#get a plot of the k ROC curves on the same axis
-rocs[[1]]$plot_curve(title=paste("All training data, 5-fold CV, Average AUC", round(average_auc, 3)))
-for(i in 1:k){
-  rocs[[i]]$plot_curve(add=T)
+for(j in 1:6){
+  #find average auc over folds
+  i1 <- get_model_idx(1, j, K)
+  i2 <- get_model_idx(K, j, K)
+  average_auc <- mean(sapply(rocs[i1:i2], function(x) x$auc), na.rm=TRUE)
+  #get a plot of the k ROC curves on the same axis
+  rocs[[1]]$plot_curve(title=paste("All training data, 5-fold CV, Average AUC", round(average_auc, 3)))
+  for (k in 1:K) {
+    rocs[[get_model_idx(k, j, K)]]$plot_curve(add=T)
+  }
+}
+
+```
+
+Fit model (for each category) on whole (unfolded) dataset
+```{r full model}
+# loop over folds
+#create lists to hold the k models and k roc curves
+full_models <- vector("list", 6)
+full_rocs <- vector("list", 6)
+# check warnings?
+for (mj in 1:6) {
+    # loop over sets of jet number {0, 1, 2+} and mH presence/absence
+    j <- jet_cats[mj]
+    fit_row_idx <- idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
+    test_row_idx <- idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
+        
+    # add r RBF centroid features, using the same reference centroids in training and testing sets
+    rbf_centroids <- get_rbf_centroids(X[fit_row_idx, ], n_rbf)
+    Xi <- rbf_centroids$"xi"
+    Xtrain <- add_rbf_features(X[fit_row_idx, ], s, n_rbf, Xi=Xi)
+    Xtest <- add_rbf_features(X[test_row_idx, ], s, n_rbf, Xi=Xi)
+
+    col_idx <- get_valid_cols(names(Xtrain), features_to_rm, mj)
+
+    Xtrain <- as.matrix(Xtrain[, col_idx])
+    Xtest <- as.matrix(Xtest[, col_idx])
+
+    model_idx <- get_model_idx(mj, 1, 1)
+
+    #fit a logistic regression model to the CV training data
+    full_models[[model_idx]] <- logistic_model$new(X=Xtrain, y=y[fit_row_idx])
+  
+    #use it to predict the classifications of the test data
+    p_hat <- full_models[[model_idx]]$predict(Xtest)
+
+    #create an ROC curve object
+    full_rocs[[model_idx]] <- ROC_curve$new(y[test_row_idx], p_hat)
+        
+    # probably want to tune the threshold? why does (very) low threshold give better ams?
+    y_hat <- decide(p_hat, thresh = 0.4)
+
+    ams[model_idx] <- calculate_ams_partition(y[test_row_idx], y_hat, w[test_row_idx], sum_w=sum_w)
 }
 ```
 
-Average coefficients over folds
-```{r avg coef}
-# average coefficients over folds. just getting NA atm, suggesting something is going wrong with missing values
-average_coefficients_over_folds <- function(b, K) {
-    b_sum <- matrix(, nrow=6, ncol=ncol(b))
-    for (i in 1:nrow(b)) {
-        kj <- inv_model_idx(i)
-        j <- kj[2]
-        b_sum[j,] <- colSums(rbind(b_sum[j,,drop=FALSE],b[i,,drop=FALSE]), na.rm=TRUE)
-    }
-    return(b_sum/K)
-}
-
-b_avg <- average_coefficients_over_folds(b, K)
-```
-
-Test of public leaderboard
+Test on public leaderboard
 ```{r public}
 amsb <- rep(NA, length=6)
 aucb <- rep(NA, length=6)
@@ -229,19 +263,25 @@ for (mj in 1:6) {
 
     Xtest <- as.matrix(Xtest[, col_idx])
 
-    model_idx <- get_model_idx(k, mj)
-    p_hat <- logistic(Xtest %*% b_avg[col_idx, model_idx])
+    model_idx <- get_model_idx(mj, 1, K)
 
-    # calculate AUC
-    ROC <- compute_roc(yb[test_row_idx], p_hat)
-    aucb[model_idx] <- compute_AUC(ROC[[1]], ROC[[2]])
+    #use it to predict the classifications of the test data
+    p_hat <- full_models[[model_idx]]$predict(Xtest)
 
-    # view the ROC plot for each model
-    plot_roc(yb[test_row_idx], p_hat, modelnum=paste(k,mj))
-    
+    #create an ROC curve object
+    full_rocs[[model_idx]] <- ROC_curve$new(yb[test_row_idx], p_hat)
     # probably want to tune the threshold? why does (very) low threshold give better ams?
-    y_hat <- decide(p_hat, thresh = 0.5)
+    y_hat <- decide(p_hat, thresh = 0.4)
 
     amsb[model_idx] <- calculate_ams_partition(yb[test_row_idx], y_hat, wb[test_row_idx], sum_w=sum_wb)
+}
+```
+
+```{r plot public}
+for(j in 1:6){
+  #find average auc over folds
+  full_rocs[[j]]$calc_auc()
+  #get a plot of the k ROC curves on the same axis
+  full_rocs[[get_model_idx(j, 1, 1)]]$plot_curve(title=paste("All training data, 5-fold CV, Average AUC", round(full_rocs[[j]]$auc, 3)))
 }
 ```
