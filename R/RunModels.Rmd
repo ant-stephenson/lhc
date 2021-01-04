@@ -67,7 +67,7 @@ n_rbf <- 5
 s <- avg_median_pairwise_distance(X)
 
 # Regularisation (L2) parameter [global]
-lambda <- 100
+lambda <- 10
 
 # K-Fold CV partitioning
 K <- 10
@@ -76,8 +76,8 @@ kI <- partition_data(length(y), K, random = TRUE)
 n <- nrow(X)
 d <- ncol(X) + n_rbf
 
-ams <- rep(NA, length=6*K)
-auc <- rep(NA, length=6*K)
+# number of jet/Higgs mass groups to build different models for
+G <- 3
 
 sum_w <- sum(w)
 ```
@@ -97,24 +97,27 @@ idx_jet_cat <- function(nj, j) {
         nj >= 2
     } else {stop("Incorrect jet category specified")}
 }
-idx_higgs_mass <- function(X, j) {
+idx_higgs_mass <- function(X, j, G) {
     # for j>3 take rows with Higgs missing (and drop Higgs)
+  if (G == 6) {
     is_missing <- is.na(X$"DER_mass_MMC")
     if (j > 3) {
         return(!is_missing)
     } else {return(is_missing)}
-    
+  } else {
+    return(rep(TRUE, dim(X)[1]))
+  }
 }
 features_to_rm <- list(list(), list(), list())
-for (mj in 1:6) {
+for (mj in 1:G) {
     j <- jet_cats[mj]
-    features_to_rm[[mj]] <- colnames(X)[colSums(is.na(X[idx_jet_cat(nj, j) & idx_higgs_mass(X, mj),])) > 0]
+    features_to_rm[[mj]] <- colnames(X)[colSums(is.na(X[idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G),])) > 0]
 }
 ```
 
 ```{r test, include=FALSE}
-midx <- matrix(, nrow=6*K,ncol=2)
-  for (j in 1:6) {
+midx <- matrix(, nrow=G*K,ncol=2)
+  for (j in 1:G) {
     for (k in 1:K) {
       idx <- get_model_idx(j, k, K)
       midx[idx,] <- inv_model_idx(idx, K)
@@ -125,13 +128,13 @@ midx
 
 Count the number of rows of data in each category and fold, with the first column being the training set and the second being the test for each fold/category
 ```{r number of rows}
-n_rows_p_partition <- matrix(, nrow=6*K, ncol=2)
-for (mj in 1:6) {
+n_rows_p_partition <- matrix(, nrow=G*K, ncol=2)
+for (mj in 1:G) {
     # loop over sets of jet number {0, 1, 2+} and mH presence/absence
     for (k in 1:K) {
         j <- jet_cats[mj]
-        fit_row_idx <- kI != k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
-        test_row_idx <- kI == k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
+        fit_row_idx <- kI != k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
+        test_row_idx <- kI == k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
 
         model_idx <- get_model_idx(mj, k, K)
 
@@ -146,17 +149,20 @@ Run models
 ```{r fitting}
 # loop over folds
 #create lists to hold the k models and k roc curves
-models <- vector("list", 6*K)
-rocs <- vector("list", 6*K)
-b <- matrix(, nrow=d, ncol=6 * K)
+models <- vector("list", G*K)
+rocs <- vector("list", G*K)
+b <- matrix(, nrow=d, ncol=G * K)
+
+ams <- rep(NA, length=G*K)
+auc <- rep(NA, length=G*K)
 
 par(mfrow=c(2, 3))
-for (mj in 1:6) {
+for (mj in 1:G) {
     # loop over sets of jet number {0, 1, 2+} and mH presence/absence
     for (k in 1:K) {
         j <- jet_cats[mj]
-        fit_row_idx <- kI != k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
-        test_row_idx <- kI == k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
+        fit_row_idx <- kI != k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
+        test_row_idx <- kI == k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
 
         # add r RBF centroid features, using the same reference centroids in training and testing sets
         if (n_rbf > 0) {
@@ -195,7 +201,7 @@ for (mj in 1:6) {
 ```
 ```{r avg auc and plot roc, error=TRUE}
 auc <- sapply(rocs, function(x) x$calc_auc())
-for(j in 1:6){
+for(j in 1:G){
   #find average auc over folds
   i1 <- get_model_idx(j, 1, K)
   i2 <- get_model_idx(j, K, K)
@@ -213,16 +219,16 @@ Fit model (for each category) on whole (unfolded) dataset
 ```{r full model}
 # loop over folds
 #create lists to hold the k models and k roc curves
-full_models <- vector("list", 6)
-full_rocs <- vector("list", 6)
-full_ams_IS <- rep(NA, length=6)
-rbf_idx <- matrix(, nrow=6, ncol=n_rbf)
+full_models <- vector("list", G)
+full_rocs <- vector("list", G)
+full_ams_IS <- rep(NA, length=G)
+rbf_idx <- matrix(, nrow=G, ncol=n_rbf)
 # check warnings?
-for (mj in 1:6) {
+for (mj in 1:G) {
     # loop over sets of jet number {0, 1, 2+} and mH presence/absence
     j <- jet_cats[mj]
-    fit_row_idx <- idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
-    test_row_idx <- idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
+    fit_row_idx <- idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
+    test_row_idx <- idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
         
     if (n_rbf > 0) {
       # add r RBF centroid features, using the same reference centroids in training and testing sets
@@ -262,13 +268,13 @@ for (mj in 1:6) {
 
 Test on (until now unseen) validation set. Calling it validation as we can then use the summary metrics to tune free parameters.
 ```{r public}
-amsv <- rep(NA, length=6)
+amsv <- rep(NA, length=G)
 
 # check warnings
 sum_wv <- sum(wv)
-for (mj in 1:6) {
+for (mj in 1:G) {
     j <- jet_cats[mj]
-    test_row_idx <- idx_jet_cat(njv, j) & idx_higgs_mass(Xv, mj)
+    test_row_idx <- idx_jet_cat(njv, j) & idx_higgs_mass(Xv, mj, G)
 
     if (n_rbf > 0) {
       # add r RBF centroid features, using the same reference centroids in training and testing sets
@@ -297,7 +303,7 @@ for (mj in 1:6) {
 ```
 
 ```{r plot public}
-for(j in 1:6){
+for(j in 1:G){
   #find average auc over folds
   full_rocs[[j]]$calc_auc()
   #get a plot of the k ROC curves on the same axis
@@ -307,6 +313,7 @@ aucv <- sapply(full_rocs, function(x) x$auc)
 ```
 Summary results:
 ```{r print}
+sprintf("Results for lambda=%.2g, G=%i, n_rbf=%i, K=%i", lambda, G, n_rbf, K)
 sprintf("CV OOS AUC = %.2f ± %.1f", mean(auc), mad(auc))
 sprintf("CV OOS AMS = %.2f ± %.1f", mean(ams), mad(ams))
 sprintf("Validation set AUC = %.2f ± %.1f", mean(aucv), mad(aucv))
