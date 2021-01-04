@@ -58,6 +58,17 @@ So we can see that the missing data is explained by the combination of an unexpe
 
 \subsection{Performance Metrics}
 \subsubsection{AMS}
+The AMS metric is the Approximate Median discovery Significance;  an approximation of the \emph{significance} defined by 
+\eq{
+    Z &= \Phi^{-1}(1-p) \\
+    &= \sqrt{q_0} \\
+    &= \sqrt{2\left(n\ln\frac{n}{\mu_b} - n + \mu_b\right)}
+}
+where $n$ is the (unknown) number of events in some search region $\mc{G}$, $\Phi^{-1}$ is the inverse Normal CDF, $q_0$ is a test statistic given by Wilks' Theorem and $\mu_b$ is the (unknown) expected number of background events. We replace $n\rightarrow s+b$ and $\mu_b\rightarrow b$ with $s,b$ the estimator of the expected number of signal and background events respectively.
+
+See \ref{HiggsML} for more details.
+
+Since this is the formal objective we aim to maximise, it might make sense to try and optimise it directly. A little analysis however reveals that the function is non-convex and therefore a poor choice. See \ref{appendix:ams} for the full calculation.
 
 \subsubsection{ROC and AUC}
 
