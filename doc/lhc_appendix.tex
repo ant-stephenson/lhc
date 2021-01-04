@@ -30,19 +30,30 @@ Using the AMS approximation, and $\log\left(1+\frac{s}{b}\right) \sim \frac{s}{b
 \eq{
     \pd_s^2\rm{AMS} &\sim \frac{\sqrt{b}}{s}\left[\frac{1}{(b+s)} - \frac{b}{s^2}(\frac{s^2}{b^2} - \frac{s^3}{b^3})\right] \\
     &= \frac{\sqrt{b}}{s(s+b)} - \frac{1}{s\sqrt{b}} + \frac{1}{b^{3/2}} \\
-    < 0
+    &\gtrsim \eps
 }
 Since in this regime of large $b$ this term is negative, the Hessian cannot be positive definite and hence the metric is non-convex. If the Hessian is \emph{concave} though, we can simply optimize $-\rm{AMS}$, so we need to check the other terms.
 
 \eq{
     \pd_b^2\rm{AMS} &\sim \frac{\sqrt{b}}{s}\left[\frac{s^2}{b^2(s+b)} - \frac{b}{s^2}(\frac{1}{4}\frac{s^4}{b^4})\right] \\
-    &= \frac{s}{b^{3/2}(s+b)} - \frac{1}{4}\frac{s}{b^{5/2}} > 0
+    &= \frac{s}{b^{3/2}(s+b)} - \frac{1}{4}\frac{s}{b^{5/2}} \\
+    &\gtrsim \eps
 }
 
 \eq{
     \pd_{bs}^2\rm{AMS} &\sim -\frac{\sqrt{b}}{s}\left[\frac{s}{b(s+b)} + \frac{b}{s^2}(\frac{s}{b} -\half\frac{s}{b^2})(-\half\frac{s^2}{b^2})\right] \\
-    &= \frac{1}{2b^{3/2}}(1-\half s) - \frac{1}{\sqrt{b}(s+b)} < 0
+    &= \frac{1}{2b^{3/2}}(1-\half s) - \frac{1}{\sqrt{b}(s+b)} \\
+    &< 0
 }
+
+where we take $\eps$ to be some suitably small positive number.
+
+If we decide to take some tolerance, $\eps \sim 10^{-6}$ at which to ignore higher order terms in $\frac{s}{b}$ we can check specifically that the claims on the Hessian above hold in that regime.
+
+So, let's assume we can ignore terms of $O(\frac{s}{b})^3$ then for $\eps\sim 10^{-6}$ a ratio of $\frac{s}{b}\sim 10^{-2}$ would suffice; so to test this, let us choose $s=1$ and $b=100$ for simplicity.
+With this, we find that $\pd_s^2\rm{AMS} \sim +10^{-6}$, $\pd_b^2\rm{AMS} \sim +10^{-6}$ and $\pd_{bs}^2\rm{AMS} \sim -10^{-4}$ which satisfies the claims above.
+Finally, to verify that this is a reasonable assertion, if we check the ratio of $s:b$ in the data (using the weight vector) we find a ratio of approximately $10^{-3}$, which means our assumption was conservative. 
+
 
 \section{Modelling}
 
