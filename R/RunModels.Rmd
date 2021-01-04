@@ -57,7 +57,7 @@ X <- invert_angle_sign(X)
 Xb <- reduce_features(Xb)
 Xb <- invert_angle_sign(Xb)
 
-n_rbf <- 10
+n_rbf <- 5
 s <- avg_median_pairwise_distance(X)
 ```
 
@@ -93,7 +93,7 @@ for (mj in 1:6) {
 Set CV indices
 ```{r init CV}
 # K-Fold CV partitioning
-K <- 5
+K <- 10
 kI <- partition_data(length(y), K, random = TRUE)
 ```
 
@@ -110,17 +110,15 @@ sum_w <- sum(w)
 ```
 
 ```{r test, include=FALSE}
-K <- 5
 midx <- matrix(, nrow=6*K,ncol=2)
   for (j in 1:6) {
     for (k in 1:K) {
-      idx <- get_model_idx(k, j, K)
+      idx <- get_model_idx(j, k, K)
       midx[idx,] <- inv_model_idx(idx, K)
     }
   }
 midx
 ```
-
 
 Count the number of rows of data in each category and fold, with the first column being the training set and the second being the test for each fold/category
 ```{r number of rows}
@@ -148,7 +146,7 @@ Run models
 models <- vector("list", 6*K)
 rocs <- vector("list", 6*K)
 b <- matrix(, nrow=d, ncol=6 * K)
-# check warnings?
+
 par(mfrow=c(2, 3))
 for (mj in 1:6) {
     # loop over sets of jet number {0, 1, 2+} and mH presence/absence
@@ -163,7 +161,7 @@ for (mj in 1:6) {
         Xtrain <- add_rbf_features(X[fit_row_idx, ], s, n_rbf, Xi=Xi)
         Xtest <- add_rbf_features(X[test_row_idx, ], s, n_rbf, Xi=Xi)
 
-        col_idx <- get_valid_cols(names(Xtrain), features_to_rm, mj)
+        col_idx <- get_valid_cols(colnames(Xtrain), features_to_rm, mj)
 
         Xtrain <- as.matrix(Xtrain[, col_idx])
         Xtest <- as.matrix(Xtest[, col_idx])
@@ -187,17 +185,17 @@ for (mj in 1:6) {
     }
 }
 ```
-```{r avg auc and plot roc}
-
+```{r avg auc and plot roc, error=TRUE}
+auc <- sapply(rocs, function(x) x$calc_auc())
 for(j in 1:6){
   #find average auc over folds
-  i1 <- get_model_idx(1, j, K)
-  i2 <- get_model_idx(K, j, K)
+  i1 <- get_model_idx(j, 1, K)
+  i2 <- get_model_idx(j, K, K)
   average_auc <- mean(sapply(rocs[i1:i2], function(x) x$auc), na.rm=TRUE)
   #get a plot of the k ROC curves on the same axis
-  rocs[[1]]$plot_curve(title=paste("All training data, 5-fold CV, Average AUC", round(average_auc, 3)))
+  rocs[[1]]$plot_curve(title=sprintf("All training data, %i-fold CV, Average AUC %.3f", K, round(average_auc, 3)))
   for (k in 1:K) {
-    rocs[[get_model_idx(k, j, K)]]$plot_curve(add=T)
+    rocs[[get_model_idx(j, k, K)]]$plot_curve(add=T)
   }
 }
 
@@ -209,6 +207,8 @@ Fit model (for each category) on whole (unfolded) dataset
 #create lists to hold the k models and k roc curves
 full_models <- vector("list", 6)
 full_rocs <- vector("list", 6)
+full_ams_IS <- rep(NA, length=6)
+rbf_idx <- matrix(, nrow=6, ncol=n_rbf)
 # check warnings?
 for (mj in 1:6) {
     # loop over sets of jet number {0, 1, 2+} and mH presence/absence
@@ -219,10 +219,12 @@ for (mj in 1:6) {
     # add r RBF centroid features, using the same reference centroids in training and testing sets
     rbf_centroids <- get_rbf_centroids(X[fit_row_idx, ], n_rbf)
     Xi <- rbf_centroids$"xi"
+    # record which rows to use for OOS in public set (or any other OOS)
+    rbf_idx[mj, ] <- rbf_centroids$"idx"
     Xtrain <- add_rbf_features(X[fit_row_idx, ], s, n_rbf, Xi=Xi)
     Xtest <- add_rbf_features(X[test_row_idx, ], s, n_rbf, Xi=Xi)
 
-    col_idx <- get_valid_cols(names(Xtrain), features_to_rm, mj)
+    col_idx <- get_valid_cols(colnames(Xtrain), features_to_rm, mj)
 
     Xtrain <- as.matrix(Xtrain[, col_idx])
     Xtest <- as.matrix(Xtest[, col_idx])
@@ -241,14 +243,13 @@ for (mj in 1:6) {
     # probably want to tune the threshold? why does (very) low threshold give better ams?
     y_hat <- decide(p_hat, thresh = 0.4)
 
-    ams[model_idx] <- calculate_ams_partition(y[test_row_idx], y_hat, w[test_row_idx], sum_w=sum_w)
+    full_ams_IS[model_idx] <- calculate_ams_partition(y[test_row_idx], y_hat, w[test_row_idx], sum_w=sum_w)
 }
 ```
 
 Test on public leaderboard
 ```{r public}
 amsb <- rep(NA, length=6)
-aucb <- rep(NA, length=6)
 
 # check warnings
 sum_wb <- sum(wb)
@@ -257,13 +258,14 @@ for (mj in 1:6) {
     test_row_idx <- idx_jet_cat(njb, j) & idx_higgs_mass(Xb, mj)
 
     # add r RBF centroid features, using the same reference centroids in training and testing sets
+    Xi <- X[rbf_idx[mj, ], ]
     Xtest <- add_rbf_features(Xb[test_row_idx, ], s, n_rbf, Xi=Xi)
 
-    col_idx <- get_valid_cols(names(Xtest), features_to_rm, mj)
+    col_idx <- get_valid_cols(colnames(Xtest), features_to_rm, mj)
 
     Xtest <- as.matrix(Xtest[, col_idx])
 
-    model_idx <- get_model_idx(mj, 1, K)
+    model_idx <- get_model_idx(mj, 1, 1)
 
     #use it to predict the classifications of the test data
     p_hat <- full_models[[model_idx]]$predict(Xtest)
@@ -282,6 +284,7 @@ for(j in 1:6){
   #find average auc over folds
   full_rocs[[j]]$calc_auc()
   #get a plot of the k ROC curves on the same axis
-  full_rocs[[get_model_idx(j, 1, 1)]]$plot_curve(title=paste("All training data, 5-fold CV, Average AUC", round(full_rocs[[j]]$auc, 3)))
+  full_rocs[[get_model_idx(j, 1, 1)]]$plot_curve(title=sprintf("All training data, %i-fold CV, Average AUC %.3f", K, round(full_rocs[[j]]$auc, 3)))
 }
+aucb <- sapply(full_rocs, function(x) x$auc)
 ```

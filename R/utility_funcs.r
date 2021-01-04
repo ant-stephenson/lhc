@@ -128,6 +128,7 @@ rbf_feature <- function(X, s, idx=NULL, xi=NULL) {
         xi <- X[idx, ]
     }
     Xi <- matrix(xi, nrow=n, ncol=length(xi), byrow=TRUE)
+    Xi <- apply(Xi, 2, unlist)
     rbf <- exp(-pairwise_distance(X, Xi)/(2 * s))
     return(rbf)
 }
@@ -153,7 +154,7 @@ avg_median_pairwise_distance <- function(X) {
 #' @param X1 covariate matrix
 #' @return vector of distances
 pairwise_distance <- function(X0, X1) {
-    rowSums(apply((X0 - X1)^2, 2, unlist), na.rm=TRUE)
+    rowSums((X0 - X1)^2, na.rm=TRUE)
 }
 
 #' Cyclic permutation of rows of X by r rows
