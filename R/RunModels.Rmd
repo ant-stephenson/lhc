@@ -31,22 +31,25 @@ filepath <- path_join(c(source_path, "LHC_dump", "R", filename))
 data <- import_data(filepath)
 ```
 
+Kaggle sets:  ”t”:training, ”b”:public leaderboard, ”v”:private leaderboard, ”u”:unused.
 ```{r training set}
-X <- data$X[data$kaggle_s == "t", ]
-y <- data$y[data$kaggle_s == "t"]
+train_idx <- get_subset_idx(data$kaggle_s, c("t"))
+X <- data$X[train_idx, ]
+y <- data$y[train_idx]
 # need to use kaggle weignts to make AMS correct?!
-kaggle_w <- data$kaggle_w[data$kaggle_s == "t"]
-w <- data$kaggle_w[data$kaggle_s == "t"]
-nj <- data$nj[data$kaggle_s == "t"]
-e_id <- data$e_id[data$kaggle_s == "t"]
+kaggle_w <- data$kaggle_w[train_idx]
+w <- data$kaggle_w[train_idx]
+nj <- data$nj[train_idx]
+e_id <- data$e_id[train_idx]
 ```
 
-```{r public leaderboard set}
+```{r validation set}
 # public leaderboard set
-Xb <- data$X[data$kaggle_s == "b", ]
-yb<- data$y[data$kaggle_s == "b"]
-wb <- data$kaggle_w[data$kaggle_s == "b"]
-njb <- data$nj[data$kaggle_s == "b"]
+val_idx <- get_subset_idx(data$kaggle_s, c("b"))
+Xv <- data$X[val_idx, ]
+yv<- data$y[val_idx]
+wv <- data$kaggle_w[val_idx]
+njv <- data$nj[val_idx]
 ```
 
 Apply some feature engineering
@@ -54,12 +57,31 @@ Apply some feature engineering
 # modify features
 X <- reduce_features(X)
 X <- invert_angle_sign(X)
-Xb <- reduce_features(Xb)
-Xb <- invert_angle_sign(Xb)
+Xv <- reduce_features(Xv)
+Xv <- invert_angle_sign(Xv)
+```
 
+Initialise parameters
+```{r init params}
 n_rbf <- 5
 s <- avg_median_pairwise_distance(X)
+
+# Regularisation (L2) parameter [global]
+lambda <- 100
+
+# K-Fold CV partitioning
+K <- 10
+kI <- partition_data(length(y), K, random = TRUE)
+
+n <- nrow(X)
+d <- ncol(X) + n_rbf
+
+ams <- rep(NA, length=6*K)
+auc <- rep(NA, length=6*K)
+
+sum_w <- sum(w)
 ```
+
 
 Use missing data pattern to partition data
 ```{r jet/missing}
@@ -88,25 +110,6 @@ for (mj in 1:6) {
     j <- jet_cats[mj]
     features_to_rm[[mj]] <- colnames(X)[colSums(is.na(X[idx_jet_cat(nj, j) & idx_higgs_mass(X, mj),])) > 0]
 }
-```
-
-Set CV indices
-```{r init CV}
-# K-Fold CV partitioning
-K <- 10
-kI <- partition_data(length(y), K, random = TRUE)
-```
-
-Initialise parameters
-```{r init param}
-n <- nrow(X)
-d <- ncol(X) + n_rbf
-
-lambda <- 1e-3
-ams <- rep(NA, length=6*K)
-auc <- rep(NA, length=6*K)
-
-sum_w <- sum(w)
 ```
 
 ```{r test, include=FALSE}
@@ -156,12 +159,17 @@ for (mj in 1:6) {
         test_row_idx <- kI == k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
 
         # add r RBF centroid features, using the same reference centroids in training and testing sets
-        rbf_centroids <- get_rbf_centroids(X[fit_row_idx, ], n_rbf)
-        Xi <- rbf_centroids$"xi"
-        Xtrain <- add_rbf_features(X[fit_row_idx, ], s, n_rbf, Xi=Xi)
-        Xtest <- add_rbf_features(X[test_row_idx, ], s, n_rbf, Xi=Xi)
-
-        col_idx <- get_valid_cols(colnames(Xtrain), features_to_rm, mj)
+        if (n_rbf > 0) {
+          rbf_centroids <- get_rbf_centroids(X[fit_row_idx, ], n_rbf)
+          Xi <- rbf_centroids$"xi"
+          Xtrain <- add_rbf_features(X[fit_row_idx, ], s, n_rbf, Xi=Xi)
+          Xtest <- add_rbf_features(X[test_row_idx, ], s, n_rbf, Xi=Xi)
+        } else {
+          Xtrain <- X[fit_row_idx, ]
+          Xtest <- X[test_row_idx, ]
+        }
+        
+        col_idx <- get_valid_cols(colnames(X), features_to_rm, mj)
 
         Xtrain <- as.matrix(Xtrain[, col_idx])
         Xtest <- as.matrix(Xtest[, col_idx])
@@ -169,7 +177,7 @@ for (mj in 1:6) {
         model_idx <- get_model_idx(mj, k, K)
 
         #fit a logistic regression model to the CV training data
-        models[[model_idx]] <- logistic_model$new(X=Xtrain, y=y[fit_row_idx])
+        models[[model_idx]] <- logistic_model$new(X=Xtrain, y=y[fit_row_idx], lambda=lambda)
         b[col_idx, model_idx] <- models[[model_idx]]$coeffs
   
         #use it to predict the classifications of the test data
@@ -216,13 +224,18 @@ for (mj in 1:6) {
     fit_row_idx <- idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
     test_row_idx <- idx_jet_cat(nj, j) & idx_higgs_mass(X, mj)
         
-    # add r RBF centroid features, using the same reference centroids in training and testing sets
-    rbf_centroids <- get_rbf_centroids(X[fit_row_idx, ], n_rbf)
-    Xi <- rbf_centroids$"xi"
-    # record which rows to use for OOS in public set (or any other OOS)
-    rbf_idx[mj, ] <- rbf_centroids$"idx"
-    Xtrain <- add_rbf_features(X[fit_row_idx, ], s, n_rbf, Xi=Xi)
-    Xtest <- add_rbf_features(X[test_row_idx, ], s, n_rbf, Xi=Xi)
+    if (n_rbf > 0) {
+      # add r RBF centroid features, using the same reference centroids in training and testing sets
+      rbf_centroids <- get_rbf_centroids(X[fit_row_idx, ], n_rbf)
+      Xi <- rbf_centroids$"xi"
+      # record which rows to use for OOS in public set (or any other OOS)
+      rbf_idx[mj, ] <- rbf_centroids$"idx"
+      Xtrain <- add_rbf_features(X[fit_row_idx, ], s, n_rbf, Xi=Xi)
+      Xtest <- add_rbf_features(X[test_row_idx, ], s, n_rbf, Xi=Xi)
+    } else {
+          Xtrain <- X[fit_row_idx, ]
+          Xtest <- X[test_row_idx, ]
+    }
 
     col_idx <- get_valid_cols(colnames(Xtrain), features_to_rm, mj)
 
@@ -232,7 +245,7 @@ for (mj in 1:6) {
     model_idx <- get_model_idx(mj, 1, 1)
 
     #fit a logistic regression model to the CV training data
-    full_models[[model_idx]] <- logistic_model$new(X=Xtrain, y=y[fit_row_idx])
+    full_models[[model_idx]] <- logistic_model$new(X=Xtrain, y=y[fit_row_idx], lambda=lambda)
   
     #use it to predict the classifications of the test data
     p_hat <- full_models[[model_idx]]$predict(Xtest)
@@ -247,20 +260,24 @@ for (mj in 1:6) {
 }
 ```
 
-Test on public leaderboard
+Test on (until now unseen) validation set. Calling it validation as we can then use the summary metrics to tune free parameters.
 ```{r public}
-amsb <- rep(NA, length=6)
+amsv <- rep(NA, length=6)
 
 # check warnings
-sum_wb <- sum(wb)
+sum_wv <- sum(wv)
 for (mj in 1:6) {
     j <- jet_cats[mj]
-    test_row_idx <- idx_jet_cat(njb, j) & idx_higgs_mass(Xb, mj)
+    test_row_idx <- idx_jet_cat(njv, j) & idx_higgs_mass(Xv, mj)
 
-    # add r RBF centroid features, using the same reference centroids in training and testing sets
-    Xi <- X[rbf_idx[mj, ], ]
-    Xtest <- add_rbf_features(Xb[test_row_idx, ], s, n_rbf, Xi=Xi)
-
+    if (n_rbf > 0) {
+      # add r RBF centroid features, using the same reference centroids in training and testing sets
+      Xi <- X[rbf_idx[mj, ], ]
+      Xtest <- add_rbf_features(Xv[test_row_idx, ], s, n_rbf, Xi=Xi)
+    } else {
+          Xtest <- Xv[test_row_idx, ]
+    }
+    
     col_idx <- get_valid_cols(colnames(Xtest), features_to_rm, mj)
 
     Xtest <- as.matrix(Xtest[, col_idx])
@@ -271,11 +288,11 @@ for (mj in 1:6) {
     p_hat <- full_models[[model_idx]]$predict(Xtest)
 
     #create an ROC curve object
-    full_rocs[[model_idx]] <- ROC_curve$new(yb[test_row_idx], p_hat)
+    full_rocs[[model_idx]] <- ROC_curve$new(yv[test_row_idx], p_hat)
     # probably want to tune the threshold? why does (very) low threshold give better ams?
     y_hat <- decide(p_hat, thresh = 0.4)
 
-    amsb[model_idx] <- calculate_ams_partition(yb[test_row_idx], y_hat, wb[test_row_idx], sum_w=sum_wb)
+    amsv[model_idx] <- calculate_ams_partition(yv[test_row_idx], y_hat, wv[test_row_idx], sum_w=sum_wv)
 }
 ```
 
@@ -284,7 +301,14 @@ for(j in 1:6){
   #find average auc over folds
   full_rocs[[j]]$calc_auc()
   #get a plot of the k ROC curves on the same axis
-  full_rocs[[get_model_idx(j, 1, 1)]]$plot_curve(title=sprintf("All training data, %i-fold CV, Average AUC %.3f", K, round(full_rocs[[j]]$auc, 3)))
+  full_rocs[[get_model_idx(j, 1, 1)]]$plot_curve(title=sprintf("All training data, public test-set, OOS AUC %.3f, group %i", round(full_rocs[[j]]$auc, 3), j))
 }
-aucb <- sapply(full_rocs, function(x) x$auc)
+aucv <- sapply(full_rocs, function(x) x$auc)
+```
+Summary results:
+```{r print}
+sprintf("CV OOS AUC = %.2f ± %.1f", mean(auc), mad(auc))
+sprintf("CV OOS AMS = %.2f ± %.1f", mean(ams), mad(ams))
+sprintf("Validation set AUC = %.2f ± %.1f", mean(aucv), mad(aucv))
+sprintf("Validation set AMS = %.2f ± %.1f", mean(amsv), mad(amsv))
 ```
