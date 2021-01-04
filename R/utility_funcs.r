@@ -88,7 +88,7 @@ add_rbf_features <- function(X, s, n_centroids, Xi=NULL) {
     }
     for (i in 1:n_centroids) {
         label <- sprintf("rbf%i", i)
-        X$label <- rbf_feature(X, s, xi=Xi[i,])
+        X[, label] <- rbf_feature(X, s, xi=Xi[i,])
     }
     return(X)
 }
