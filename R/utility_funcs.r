@@ -127,7 +127,7 @@ rbf_feature <- function(X, s, idx=NULL, xi=NULL) {
     if (is.null(xi)) {
         xi <- X[idx, ]
     }
-    Xi <- matrix(rep(as.numeric(xi), n), nrow=n, ncol=ncol(X))
+    Xi <- matrix(xi, nrow=n, ncol=length(xi), byrow=TRUE)
     rbf <- exp(-pairwise_distance(X, Xi)/(2 * s))
     return(rbf)
 }
