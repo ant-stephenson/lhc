@@ -190,14 +190,14 @@ partition_data <- function(n, k, random=FALSE){
 }
 
 # helper function to get the index corresponding to the model built on folds {l !=k} and for jet number j {1,2,3}, ordering columns by fold and then with nesting on j i.e. first six cols are k=1, j=1,2,3; k=2, j=1,2,3; etc
-get_model_idx <- function(k, j, K) {
+get_model_idx <- function(j, k, K) {
     K*(j-1) + k
 }
 
 inv_model_idx <- function(idx, K) {
     # assumes indexing loops internally over j and externally over k
-    j <-  ceiling(idx/5)
-    k <- idx - 5*(j-1)
+    j <-  ceiling(idx/K)
+    k <- idx - K*(j-1)
     return(c(j, k))
 }
 
