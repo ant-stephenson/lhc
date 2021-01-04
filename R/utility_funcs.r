@@ -1,3 +1,11 @@
+#' Select indices of rows in x which correspond to values of labels, which can be multiple elements
+#' @param x vector of labels
+#' @param labels reference labels to compare to
+#' e.g. x <- c("t", "b", "t", "v", "b"); labels <- c("t", "b")
+#' get_subset_idx(x, labels) = T, T, T, F, T
+get_subset_idx <- function(x, labels) {
+  !is.na(match(x, labels))
+}
 
 #' Import data from the Higgs csv file. Reorganise into covariates, labels and supplementary data (weights, ids)
 #' Replace -999s with NA

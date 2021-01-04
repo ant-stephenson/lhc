@@ -8,7 +8,7 @@ source("utility_funcs.R")
 #' @param lambda [Optional] L2 regularisation parameter
 #' @return b vector of coefficients
 library(Matrix)
-logistic_reg <- function(X, y, r=NULL, lambda = 1e-3) {
+logistic_reg <- function(X, y, r=NULL, lambda = 0) {
     invlink <- logistic
     dinvlink <- function(x)  exp(x)/(1 + exp(x))^2
     loss <- function(y, eta) log(1 + exp((-1)^y*eta))
@@ -59,14 +59,14 @@ logistic_model <- setRefClass("logistic_model",
 #uses the coefficients to find p(y=1) (probability of signal)
 
 logistic_model$methods(
-  initialize = function(X_train, y_train){
+  initialize = function(X_train, y_train, lambda=1e-6){
     X_train <- as.matrix(X_train)
     y_train <- as.numeric(y_train)
     
     .self$X <- X_train
     .self$y <- y_train
     
-    b <- logistic_reg(X_train, y_train)
+    b <- logistic_reg(X_train, y_train, lambda=lambda)
     .self$coeffs <- as.numeric(b)
     .self$prob <- as.numeric(logistic(X_train %*% b))
   },
