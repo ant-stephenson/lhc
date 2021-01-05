@@ -67,6 +67,61 @@ scale_dat <- function(X, ref, na.rm=FALSE){
   return(X)
 }
 
+#' Get boolean vector of rows with j=0,1 or 2+
+#' @param nj Vector of number of jets for each point
+#' @parma j jet group
+idx_jet_cat <- function(nj, j) {
+    if (j == 1) {
+        nj == 0
+    } else if (j == 2) {
+        nj == 1
+    } else if (j == 3) {
+        nj >= 2
+    } else {stop("Incorrect jet category specified")}
+}
+
+#' Get boolean index for rows with missing/or not missing (depending on G/j) Higgs mass
+#' @param X matrix of covariates
+#' @parma j jet group
+#' @param G number of jet groups
+#' @return vector of bools
+idx_higgs_mass <- function(X, j, G) {
+    # for j>3 take rows with Higgs missing (and drop Higgs)
+  if (G == 6) {
+    is_missing <- is.na(X$"DER_mass_MMC")
+    if (j > 3) {
+        return(!is_missing)
+    } else {return(is_missing)}
+  } else {
+    return(rep(TRUE, dim(X)[1]))
+  }
+}
+
+#' create list of feature names we want to omit based on jet group, or constant values/missing
+#' @param X matrix of covariates
+#' @param G number of jet groups
+#' @param kI fold indices (test label)
+#' @param nj Vector of number of jets for each point
+#' @return nested list of column names
+set_features_to_rm <- function(X, G, kI, nj) {
+  K <- max(kI)
+  features_to_rm <- list(list(), list(), list())
+  for (mj in 1:G) {
+    j <- jet_cats[mj]
+    .features_to_rm <- colnames(X)[colSums(is.na(X[idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G),])) > 0]
+    
+    # check if any features are constant over a fold of a jet group as then we'll have multicollinearity issues
+    const_features <- list()
+    for (k in 1:K) {
+      fit_row_idx <- kI != k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
+      const_features <- union(const_features, get_const_features(X[fit_row_idx,]))
+    }
+    
+    features_to_rm[[mj]] <- union(.features_to_rm, unlist(const_features))
+  }
+  return(features_to_rm)
+}
+
 
 #' Reduce feature space dimensionality by exploiting redundancy
 #' 
