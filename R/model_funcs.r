@@ -10,7 +10,14 @@ source("utility_funcs.R")
 library(Matrix)
 logistic_reg <- function(X, y, r=NULL, lambda = 0) {
     invlink <- logistic
-    dinvlink <- function(x)  exp(x)/(1 + exp(x))^2
+    dinvlink <- function(x) {
+      # make computation more stable for large x, with tol ~ 10^-18
+      large_x <- x > 10
+      output <- matrix(, nrow=length(x))
+      output[!large_x] <- exp(x[!large_x])/(1 + exp(x[!large_x]))^2
+      output[large_x] <- exp(-x[large_x] - 2*exp(-x[large_x]) + exp(-2*x[large_x]))
+      return(output)
+    }
     loss <- function(y, eta) log(1 + exp((-1)^y*eta))
 
     d <- ncol(X)
