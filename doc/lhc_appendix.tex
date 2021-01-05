@@ -74,7 +74,7 @@ We want to minimise the negative loglikelihood:
     &= \frac{x_ax_b\e^{y\inprod{\xv}{\betav}}}{(1+\e^{y\inprod{\xv}{\betav}})^2}\\
     &= x_ax_bw(x)
 }
-where in the last line we define a weight function $w(x) = \frac{\e^x}{(1+\e^x)^2}$.
+where in the last line we define a weight function $w(x) = \frac{\e^{-x}}{(1+\e^{-x})^2}$ (and the elementwise vector version, $\wv(\xv) = \frac{\e^{-\xv}}{(1+\e^{-\xv})^2}$).
 
 To implement Newton's method we want to try and simplify the expressions. First define the logistic and logit functions as
 \eq{
@@ -100,7 +100,7 @@ Now for our entire dataset $D$, assumed to be IID, we have a total loss, gradien
     \bm{H} &= \sum_{i \in D}\xv_i\xv_i^Tw(\xv_i)\\
     &= \Xv^T\bm{W}\Xv
 }
-with $\Xv = \bp \xv_1^T \\ \vdots \\ \xv_n^T \ep \in R^{n\times d}$, $\bm{W} = \diag(w(\xv)) \in R^{n\times n}$.
+with $\Xv = \bp \xv_1^T \\ \vdots \\ \xv_n^T \ep \in R^{n\times d}$, $\bm{W} = \diag(\wv(\xv)) \in R^{n\times n}$.
 
 \subsubsection{Regularisation}
 We can add constraints to our minimisation problem, to help constrain the coefficients and effectively implement $L_2$ regularisation by formulating the following convex optimisation problem.
