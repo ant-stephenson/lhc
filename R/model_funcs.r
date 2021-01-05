@@ -1,7 +1,7 @@
 source("utility_funcs.R")
 
 #' Fit a logistic regression model by IRWLS - same thing glm does
-#' 
+#'
 #' @param X covariate matrix
 #' @param y response vector
 #' @param r [Optional] weight vector
@@ -32,13 +32,18 @@ logistic_reg <- function(X, y, r=NULL, lambda = 0) {
         H <- t(X) %*% W %*% X + 2 * lambda * diag(rep(1, d))
         grad <- -t(X) %*% (y - mu) + 2 * lambda * b
 
-        b <- b - solve(H, grad)
+        #an option that does not compute H^-1
+        #marginally quicker..
+        H_svd <- svd(H)
+        H_inv <- H_svd$v %*% diag(1/H_svd$d) %*% t(H_svd$u)
+        b <- b - H_inv %*% grad
+        # b <- b - solve(H, grad)
         eta <- X %*% b
         mu <- invlink(eta)
         L_new <- sum(loss(y, eta)) + lambda * t(b) %*% b
-        
+
         if (as.logical(abs(L - L_new) < tol)) {
-            print(sprintf("No. iterations: %d", i))
+            # print(sprintf("No. iterations: %d", i))
             break
         }
         L <- L_new
@@ -62,17 +67,17 @@ logistic_model$methods(
   initialize = function(X_train, y_train, lambda=1e-6){
     X_train <- as.matrix(X_train)
     y_train <- as.numeric(y_train)
-    
+
     .self$X <- X_train
     .self$y <- y_train
-    
+
     b <- logistic_reg(X_train, y_train, lambda=lambda)
     .self$coeffs <- as.numeric(b)
     .self$prob <- as.numeric(logistic(X_train %*% b))
   },
-  
+
   #also defines a method to use this model to predict class of new points
   predict = function(X_test){
-    return(logistic(as.matrix(X_test) %*% coeffs))
+    return(logistic(as.matrix(X_test) %*% .self$coeffs))
   }
 )
