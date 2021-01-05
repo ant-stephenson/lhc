@@ -39,17 +39,34 @@ import_data <- function(filepath="atlas-higgs-challenge-2014-v2.csv") {
     loc999s <- X == -999
     X[loc999s] <- NA
 
-    # standardize data and add intercept - not technically OOS if we do this on all data
-    X <- scale(X, TRUE, TRUE)
-    n <- nrow(X)
-    X <- cbind(rep(1, n), X)
-    X_header <- c("Intercept", X_header)
     X <- data.frame(X)
 
     output <- list(X=X, y=y, w=w, kaggle_w=kaggle_w, kaggle_s=kaggle_s, e_id=e_id, nj=nj)
 
     return(output)
 }
+
+#define a function to scale features of a matrix with reference to another matrix
+#useful because you can normalise X_train, and apply the same transformation to X_test
+#not designed for data with -999s! 
+scale_dat <- function(X, ref, na.rm=FALSE){
+  if(ncol(X) != ncol(ref)) stop('Two inputs must have the same number of columns')
+
+  #calculate column means and sds of ref, ignoring NAs
+  mu <- colMeans(ref, na.rm=na.rm)
+  sd <- apply(ref, 2, function(x) sd(x, na.rm=na.rm))
+  
+  #transform columns of X
+  for(i in 1:ncol(ref)){
+    X[,i] <- (X[,i] - mu[i]) / sd[i] #is there a smarter way to do this not in a loop?
+  }
+
+  #also add column of 1s called intercept
+  Intercept <- rep(1, nrow(X))
+  X <- cbind(Intercept, X)
+  return(X)
+}
+
 
 #' Reduce feature space dimensionality by exploiting redundancy
 #' 
@@ -175,6 +192,28 @@ permute_matrix <- function(X, r=1) {
     return(X_perm)
 }
 
+poly_transform <- function(X, b=2){
+    for(i in 2:b){
+        Xb <- apply(X[, ], 2, function(col) col^b)
+        colnames(Xb) <- paste0(colnames(Xb), "^", b)
+        X <- cbind(X, Xb)
+    }
+    #remove highly correlated variables
+    cors <- cor(X)
+    cors[!lower.tri(cors)] <- 0
+    X <- X[, !apply(cors,2,function(x) any(abs(x) > 0.80, na.rm=TRUE))]
+    return(X)
+}
+
+#' find colnames for columns that are constant (e.g. all 1, -999, NA etc)
+#' @param X matrix of covariates
+#' @return list of column names
+get_const_features <- function(X) {
+    col_sd <- apply(X, 2, sd)
+    cols <- col_sd == 0 | is.na(col_sd)
+    return(setdiff(colnames(X)[cols], "Intercept"))
+}
+
 #' Partition data into (random) folds for cross-validation. 
 #' 
 #' @param n number of rows
@@ -198,11 +237,19 @@ partition_data <- function(n, k, random=FALSE){
     }
 }
 
-# helper function to get the index corresponding to the model built on folds {l !=k} and for jet number j {1,2,3}, ordering columns by fold and then with nesting on j i.e. first six cols are k=1, j=1,2,3; k=2, j=1,2,3; etc
+#' helper function to get the index corresponding to the model built on folds {l !=k} and for jet number j {1,2,3}, ordering columns by fold and then with nesting on j i.e. first six cols are k=1, j=1,2,3; k=2, j=1,2,3; etc
+#' @param j this jet group
+#' @param k this fold
+#' @param K number of folds
 get_model_idx <- function(j, k, K) {
     K*(j-1) + k
 }
 
+#' does the inverse procedure to get_model_idx, s.t. if idx <- get_model_idx(j, k, K)
+#' then (j,k) <- inv_model_idx(idx) (if R output tuples)
+#' @param idx model index
+#' @param K number of folds
+#' @return numeric pair of j and k
 inv_model_idx <- function(idx, K) {
     # assumes indexing loops internally over j and externally over k
     j <-  ceiling(idx/K)
@@ -210,13 +257,18 @@ inv_model_idx <- function(idx, K) {
     return(c(j, k))
 }
 
+#' Gets the columns from header that aren't in features_to_rm
+#' @param header list of column names e.g. names(X)
+#' @param features_to_rm list of feature names we want to remove
+#' @param j jet group
+#' @return index of columns to retain
 get_valid_cols <- function(header, features_to_rm, j) {
     match(setdiff(header, features_to_rm[[j]]), header)
 }
 
 #' Calculate logistic function
 #' @param x float
-#' @param return logistic(x)
+#' @return logistic(x)
 logistic <- function(x) {
     1/(1 + exp(-x))
 }
