@@ -71,6 +71,11 @@ See \cite{HiggsML} for more details.
 Since this is the formal objective we aim to maximise, it might make sense to try and optimise it directly. A little analysis however reveals that the function is non-convex and therefore a poor choice. See \ref{appendix:ams} for the full calculation.
 
 \subsubsection{ROC and AUC}
+A ROC (Receiver Operating Characteristic) curve plots the true positive rate against the false positive rate for a binary classifier with a varying decision threshold. By doing this we can show the ability of the classifier to dscriminate between the two classes and attain a metric for the performance that we can use to compare models. The worst possible model is given by a line at $y=x$ and any curve above this line is an improvement. 
+
+The AUC (Area Under the [ROC] Curve) provides a compression of the assessment the ROC curve provides by integrating the ROC curve and giving a value in $[0,1]$ that represents an overall view of the discriminatory power of the model. A value of 0.5 corresponds to the worst model ($y=x$) whilst 1.0 would represent a perfect model. 
+
+Note that for our problem, the actual ratio of signal:background events is very small, which would cause a problem in interpreting the AUC reliably. In the actual dataset, this problem is mitigated by providing comparable numbers of rows with signal labels as to rows with background labels, each with an associated weight, such that the overall weighted events of signal and background match the actual observed data.
 
 \subsection{Logistic Regression}
 
@@ -81,8 +86,10 @@ In order to improve the performance of our model, we attempted to carry out some
 
 \subsubsection{Redundancy}
 By considering the basic physics of the beam it is possible to see that there is some redundancy amongst the (primitive) features in the dataset. We can exploit this fact and reduce our initial feature space slightly, by transforming the redundant features into a set of new derived features that contain the same information. 
+More specifically, the redundancy comes from the consideration that the physical phenomena should be invariant to certain symmetries; a rotation about the beam ($z$) axis and reflections in the $xy$-plane.
 
 \subsubsection{Higher-Order Effects}
+\paragraph{RBF Centroids}
 To attempt to capture generic higher order interaction-type effects, we implemented a set of RBF centroid features. The implementation works as follows 
 \begin{algorithm}[H]
     1. Generate heuristic estimate of RBF hyperparameter $s$.\\
@@ -100,6 +107,7 @@ To attempt to capture generic higher order interaction-type effects, we implemen
 \end{algorithm}
 
 \subsubsection{Transformations}
+\paragraph{Polynomial}
 
 \subsubsection{Interactions}
 
