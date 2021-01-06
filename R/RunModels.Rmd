@@ -211,8 +211,8 @@ for(j in 1:G){
   i2 <- get_model_idx(j, K, K)
   average_auc <- mean(sapply(rocs[i1:i2], function(x) x$auc), na.rm=TRUE)
   #get a plot of the k ROC curves on the same axis
-  rocs[[1]]$plot_curve(title=sprintf("All training data, %i-fold CV, Average AUC %.3f", K, round(average_auc, 3)))
-  for (k in 1:K) {
+  rocs[[i1]]$plot_curve(title=sprintf("All training data, %i-fold CV, Average AUC %.3f", K, round(average_auc, 3)))
+  for (k in 2:K) {
     rocs[[get_model_idx(j, k, K)]]$plot_curve(add=T)
   }
 }
