@@ -1,5 +1,27 @@
 source("utility_funcs.R")
 
+
+#' backtracking linesearch to find "optimal" step size
+#' @param f function we're minimising
+#' @param gradf gradient of f
+#' @param x parameter we're optimising over
+#' @param deltax newton step
+#' @param alpha linesearch parameter
+#' @param beta linesearch update parameter
+backtrack_linesearch <- function(f, gradf, x, deltax, alpha, beta) {
+  linesearch_cond <- function(step) {
+    f(x + step*deltax) > f(x) + alpha * step * t(gradf(x)) %*% deltax 
+  }
+  max_iter <- 10
+  iter <- 0
+  step <- 1
+  while (linesearch_cond(step) & iter < max_iter) {
+    step <- beta * step
+    iter <- iter + 1
+  }
+  return(step)
+}
+
 #' Fit a logistic regression model by IRWLS - same thing glm does
 #'
 #' @param X covariate matrix
@@ -11,7 +33,8 @@ library(Matrix)
 logistic_reg <- function(X, y, r=NULL, lambda = 0) {
     invlink <- logistic
     dinvlink <- function(x) exp(-x)/(1+exp(-x))^2
-    loss <- function(y, eta) log(1 + exp((-1)^y*eta))
+    loss <- function(b) sum(log(1 + exp((-1)^y*(X %*% b))))
+    gradloss <- function(b) -t(X) %*% (y - invlink(X %*% b)) + 2 * lambda * b
 
     d <- ncol(X)
     n <- nrow(X)
@@ -19,28 +42,29 @@ logistic_reg <- function(X, y, r=NULL, lambda = 0) {
     if (is.null(r)) {r <- rep(1,n)}
 
     b <- matrix(0, d, 1)
-    eta <- matrix(0, n, 1)
-    mu <- invlink(eta)
-    L <- sum(loss(y, eta)) + lambda * t(b) %*% b
+    L <- loss(b) + lambda * t(b) %*% b
 
     maxIter <- 10
     tol <- 1e-6
 
     for (i in 1:maxIter) {
-        w <- pmax(dinvlink(eta), 1e-6)
+        w <- pmax(dinvlink(X %*% b), 1e-6)
         W <- Diagonal(x = as.numeric(w) * r)
         H <- t(X) %*% W %*% X + 2 * lambda * diag(rep(1, d))
-        grad <- -t(X) %*% (y - mu) + 2 * lambda * b
+        grad <- gradloss(b)
 
         #an option that does not compute H^-1
         #marginally quicker..
         H_svd <- svd(H)
         H_inv <- H_svd$v %*% diag(1/H_svd$d) %*% t(H_svd$u)
-        b <- b - H_inv %*% grad
+
+        deltab <- -H_inv %*% grad
+
+        step <- backtrack_linesearch(loss, gradloss, b, deltab, 0.3, 0.2)
+
+        b <- b + step * deltab
         # b <- b - solve(H, grad)
-        eta <- X %*% b
-        mu <- invlink(eta)
-        L_new <- sum(loss(y, eta)) + lambda * t(b) %*% b
+        L_new <- loss(b) + lambda * t(b) %*% b
 
         if (as.logical(abs(L - L_new) < tol)) {
             # print(sprintf("No. iterations: %d", i))
