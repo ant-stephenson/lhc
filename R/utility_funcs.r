@@ -10,7 +10,7 @@ get_subset_idx <- function(x, labels) {
 #' Import data from the Higgs csv file. Reorganise into covariates, labels and supplementary data (weights, ids)
 #' Replace -999s with NA
 #' Standardize covariates
-#' 
+#'
 #' @param filepath str location of csv
 #' @return named list of X, y, w, kaggle_w, kaggle_s, e_id, nj
 import_data <- function(filepath="atlas-higgs-challenge-2014-v2.csv") {
@@ -46,16 +46,20 @@ import_data <- function(filepath="atlas-higgs-challenge-2014-v2.csv") {
     return(output)
 }
 
-#define a function to scale features of a matrix with reference to another matrix
-#useful because you can normalise X_train, and apply the same transformation to X_test
-#not designed for data with -999s! 
+#' define a function to scale features of a matrix with reference to another matrix
+#' useful because you can normalise X_train, and apply the same transformation to X_test
+#' not designed for data with -999s!
+#' @param X matrix of covariates
+#' @param ref matrix of covariates from which to calculate mu and sd
+#' @param na.rm flag to be compatible with colMeans and sd (to ignore NA)
+#' @return X augmented matrix of covariates, standardized \oplus intercept column
 scale_dat <- function(X, ref, na.rm=FALSE){
   if(ncol(X) != ncol(ref)) stop('Two inputs must have the same number of columns')
 
   #calculate column means and sds of ref, ignoring NAs
   mu <- colMeans(ref, na.rm=na.rm)
   sd <- apply(ref, 2, function(x) sd(x, na.rm=na.rm))
-  
+
   #transform columns of X
   for(i in 1:ncol(ref)){
     X[,i] <- (X[,i] - mu[i]) / sd[i] #is there a smarter way to do this not in a loop?
@@ -109,14 +113,14 @@ set_features_to_rm <- function(X, G, kI, nj) {
   for (mj in 1:G) {
     j <- jet_cats[mj]
     .features_to_rm <- colnames(X)[colSums(is.na(X[idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G),])) > 0]
-    
+
     # check if any features are constant over a fold of a jet group as then we'll have multicollinearity issues
     const_features <- list()
     for (k in 1:K) {
       fit_row_idx <- kI != k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
       const_features <- union(const_features, get_const_features(X[fit_row_idx,]))
     }
-    
+
     features_to_rm[[mj]] <- union(.features_to_rm, unlist(const_features))
   }
   return(features_to_rm)
@@ -124,10 +128,10 @@ set_features_to_rm <- function(X, G, kI, nj) {
 
 
 #' Reduce feature space dimensionality by exploiting redundancy
-#' 
+#'
 #' @param X matrix of covariates
 #' @return X augmented matrix of covariates
-# based on 
+# based on
 # https://www.kaggle.com/c/higgs-boson/discussion/9576
 reduce_features <- function(X) {
     X$"PRI_lep_phi-PRI_tau_phi" <- (X[, "PRI_lep_phi"] - X[, "PRI_tau_phi"]) %% (2*pi)
@@ -154,11 +158,11 @@ invert_angle_sign <- function(X) {
 }
 
 #' Add n_centroids RBF features to X
-#' 
+#'
 #' @param X covariate matrix
 #' @param s median pairwise distance of points in X
 #' @param n_centroids number of RBF features to add
-#' @param Xi matrix of reference points to calculate RBF w.r.t 
+#' @param Xi matrix of reference points to calculate RBF w.r.t
 #' @return X augmented covariate matrix
 add_rbf_features <- function(X, s, n_centroids, Xi=NULL) {
     set.seed(1234)
@@ -174,7 +178,7 @@ add_rbf_features <- function(X, s, n_centroids, Xi=NULL) {
 }
 
 #' Get reference points for RBF centroids
-#' 
+#'
 #' @param X covariate matrix
 #' @param n_centroids number of RBF centroids
 #' @param idx [Optional] location of RBF centroid reference points
@@ -192,8 +196,8 @@ get_rbf_centroids <- function(X, n_centroids, idx=NULL) {
     return(list("xi"=Xi, "idx"=idx))
 }
 
-#' Compute single RBF feature at some centroid i in idx (or xi in Xi) 
-#' 
+#' Compute single RBF feature at some centroid i in idx (or xi in Xi)
+#'
 #' @param X covariate matrix
 #' @param s median pairwise distance of points in X
 #' @param idx [Optional] location of reference centroid
@@ -214,7 +218,7 @@ rbf_feature <- function(X, s, idx=NULL, xi=NULL) {
 }
 
 #' Calculate average of median pairwise distances for between all adjacent points
-#' 
+#'
 #' @param X covariate matrix
 #' @return s median pairwise distance
 avg_median_pairwise_distance <- function(X) {
@@ -229,7 +233,7 @@ avg_median_pairwise_distance <- function(X) {
 }
 
 #' Calculate distance for each row of X0 and X1
-#' 
+#'
 #' @param X0 covariate matrix
 #' @param X1 covariate matrix
 #' @return vector of distances
@@ -238,7 +242,7 @@ pairwise_distance <- function(X0, X1) {
 }
 
 #' Cyclic permutation of rows of X by r rows
-#' 
+#'
 #' @param X covariate matrix
 #' @param r number of rows to permute (default=1)
 permute_matrix <- function(X, r=1) {
@@ -247,6 +251,10 @@ permute_matrix <- function(X, r=1) {
     return(X_perm)
 }
 
+#' Run polynomial transform on columns of X (of order b), removing output columns that are highly correlated
+#' @param X matrix of covariates
+#' @param b order of polynomial
+#' @return X augmented matrix of covariates (i.e. X \oplus Xb \ cor(X \oplus Xb > 0.8))
 poly_transform <- function(X, b=2){
     for(i in 2:b){
         Xb <- apply(X[, ], 2, function(col) col^b)
@@ -269,8 +277,8 @@ get_const_features <- function(X) {
     return(setdiff(colnames(X)[cols], "Intercept"))
 }
 
-#' Partition data into (random) folds for cross-validation. 
-#' 
+#' Partition data into (random) folds for cross-validation.
+#'
 #' @param n number of rows
 #' @param k number of folds
 #' @param random flag to choose whether to randomly select
@@ -279,13 +287,13 @@ get_const_features <- function(X) {
 partition_data <- function(n, k, random=FALSE){
     #minimum size of the group
     size <- floor(n/k)
-    
+
     #number of remaining points after even division
     remainder <- n %% k
-    
+
     #repeat 1:k size times, then 1:remainder (makes a vector length n)
     ind <- c(rep(seq(1:k), size), seq(1, remainder, length.out = remainder))
-    
+
     #if you want, shuffle the index
     if(random==T){
         ind <- ind[sample(ind)]
@@ -396,7 +404,7 @@ calc_K <- function(X, ckernel){
 }
 
 #' Calculate predictions for test points by computing the kernel matrix over the training points and the kernel vector(/matrix) over test and training points
-#' 
+#'
 #' @param X_test matrix of covariate test points
 #' @param X_train matrix of covariate training points
 #' @param y response vector
@@ -422,7 +430,7 @@ svm_predict <- function(X_test, X_train, y, L, ckernel=lin_kernel) {
 }
 
 #' Thresholding function
-#' 
+#'
 #' @param p vector of probabilities
 #' @param thresh threshold over which we assign output of 1
 decide <- function(p, thresh = 0.5) {
@@ -430,9 +438,9 @@ decide <- function(p, thresh = 0.5) {
     return(label)
 }
 
-#' the AMS metric. 
-#' note s = sum_{i in B \cup G}w_i and b = sum_{i in B \cup G}w_i; 
-#' i.e. the sum of the weights of succesful signal classifications (TP) 
+#' the AMS metric.
+#' note s = sum_{i in B \cup G}w_i and b = sum_{i in B \cup G}w_i;
+#' i.e. the sum of the weights of succesful signal classifications (TP)
 #' and the sum of the weights of incorrect signal classifications (FP) respectively
 #' @param s count of true positives
 #' @param b count of false positives
@@ -471,8 +479,10 @@ count_b <- function(y, y_hat, w) {
 #' @param w weights
 #' @param sum_w total sum of weights for renormalisation
 #' @return ams
-calculate_ams_partition <- function(y, y_hat, w, sum_w=1) {
+calculate_ams_partition <- function(y, y_hat, w, sum_w=NULL) {
+  if (!is.null(sum_w)) {
     w <- w * sum_w/sum(w)
+  }
     y_hat <- as.numeric(y_hat)
     s <- count_s(y, y_hat, w)
     b <- count_b(y, y_hat, w)
