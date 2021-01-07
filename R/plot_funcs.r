@@ -180,6 +180,7 @@ AMS_data$methods(
       y_pred <- prob >= thresholds[i]
       AMS[i] <- calculate_ams_partition(y, y_pred, weights, sum_w)
     }
+    .self$max_ams <- max(AMS)
     .self$ams <- AMS
   },
 
@@ -187,19 +188,19 @@ AMS_data$methods(
     .self$max_thresh <- thresholds[which.max(ams)]
   },
 
-  plot_ams = function(lgd=NULL, add=FALSE){
+  plot_ams = function(lgd=NULL, add=FALSE, ...){
     #find the maximum ams threshold
     .self$calc_ams()
-    .self$max_ams <- max(ams)
     .self$get_max_thresh()
 
     #plot the ams at different thresholds, with a line at the best
     if(add==FALSE){
-      plot(thresholds, ams, type="l", col="steelblue", main="AMS at different decision thresholds")
+      plot(thresholds, ams, type="l", main="AMS at different decision thresholds", ...)
       abline(v=max_thresh, lty=2)
       if (is.null(lgd)) {lgd <- paste0("Max AMS at p=", round(max_thresh, 2))}
       legend("bottomleft", legend=lgd, lty=2)
     }
     lines(thresholds, ams)
+    abline(v=max_thresh, lty=2)
   }
 )
