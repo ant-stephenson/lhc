@@ -1,6 +1,20 @@
 library(ggplot2)
 source("utility_funcs.r")
 
+#' Function to generate colours that are quite distinct
+#' @param ncolours number of colours we want
+#' @return vector of hex colours
+generate_colours <- function(ncolours) {
+  colours <- vector("list", ncolours)
+  for (i in 1:ncolours) {
+    h <- i/ncolours
+    s <- 0.8 + 0.1 * runif(1)
+    v <- 0.6 + 0.1 * runif(1)
+    colours[i] <- hsv(h,s,v)
+  }
+  return(unlist(colours))
+}
+
 #' Compute receiver operating characteristic (ROC) curve
 #'
 #' @param y response vector
@@ -136,7 +150,7 @@ ROC_curve$methods(
   },
 
   #define a method to plot the roc (if add is true, only the new roc line is plotted)
-  plot_curve = function(title="auc", add=FALSE){
+  plot_curve = function(title="auc", add=FALSE, ...){
     if(title=="auc"){
       title <- paste("AUC:", round(.self$auc,2))
     }
@@ -145,7 +159,7 @@ ROC_curve$methods(
            ylab="True Positive Rate", main=title)
       legend("bottomright", legend=c("Chance", "Logistic Regression"), col=2:1, lty=2:1)
     }
-    lines(.self$FP, .self$TP)
+    lines(.self$FP, .self$TP, ...)
   }
 )
 
@@ -200,7 +214,7 @@ AMS_data$methods(
       if (is.null(lgd)) {lgd <- paste0("Max AMS at p=", round(max_thresh, 2))}
       legend("bottomleft", legend=lgd, lty=2)
     }
-    lines(thresholds, ams)
+    lines(thresholds, ams, ...)
     abline(v=max_thresh, lty=2)
   }
 )
