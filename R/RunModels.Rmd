@@ -23,10 +23,11 @@ source("plot_funcs.r")
 source("lr_funcs.r")
 source("lr1_funcs.r")
 ```
+Kaggle sets:  ”t”:training, ”b”:public leaderboard, ”v”:private leaderboard, ”u”:unused.
 Set script parameters:
 ```{r initialise script params}
 # Regularisation (L2) parameter [global]
-lambda <- 1e-3
+lambda <- 10
 
 # constraint parameter for L1 Logistic regression [global]
 c <- 1
@@ -35,7 +36,7 @@ c <- 1
 G <- 3
 
 # AMS thresholds
-thresholds <- c(0.7, 0.4, 0.8)
+thresholds <- c(0.4, 0.4, 0.4)
 
 # name to use in the .csv output of results
 result_label <- "_l1_logreg_"
@@ -47,6 +48,16 @@ model_init <- partial(logistic_model$new, lambda=lambda)
 # L1 logistic regression (using CVXR)
 # rm(logistic)
 # model_init <- partial(logistic_l1_model$new, c=c)
+
+
+# model_init <- function(X, y, w=w) {
+#   w <- w/sum(w)
+#   glm(y~. - 1, family="binomial", weights = w, data = as.data.frame(X))
+# }
+
+# pick training and validation sets
+train_label = c("t")
+val_label <- c("b")
 ```
 
 
@@ -59,10 +70,8 @@ filepath <- path_join(c(source_path, "LHC_dump", "R", filename))
 data <- import_data(filepath)
 ```
 
-Kaggle sets:  ”t”:training, ”b”:public leaderboard, ”v”:private leaderboard, ”u”:unused.
 Assign variables corresponding to the training set.
 ```{r training set}
-train_label = c("t")
 train_idx <- get_subset_idx(data$kaggle_s, train_label)
 X <- data$X[train_idx, ]
 y <- data$y[train_idx]
@@ -76,32 +85,11 @@ e_id <- data$e_id[train_idx]
 Assign variables corresponding to the validation set.
 ```{r validation set}
 # public leaderboard set
-val_label <- c("b")
 val_idx <- get_subset_idx(data$kaggle_s, val_label)
 Xv <- data$X[val_idx, ]
 yv<- data$y[val_idx]
 wv <- data$kaggle_w[val_idx]
 njv <- data$nj[val_idx]
-```
-
-Take a look at how signal/background events are distributed in terms of jet groups and similarly the weights associated with them.
-```{r check weight distributions}
-w_ratio <- function(y, w, nj, label, j) {
-  sum(w[idx_jet_cat(nj, j) & y==label])/sum(w[idx_jet_cat(nj, j)])
-}
-weight_stats <- data.frame(j=c(1,2,3),
-                           s=c(w_ratio(y,w,nj,1,1), w_ratio(y,w,nj,1,2), w_ratio(y,w,nj,1,3)), 
-                            b=c(w_ratio(y,w,nj,0,1), w_ratio(y,w,nj,0,2), w_ratio(y,w,nj,0,3)) 
-)
-weight_stats
-n_ratio <- function(y, nj, label, j) {
-  sum(y==label & idx_jet_cat(nj, j))/sum(idx_jet_cat(nj, j))
-}
-n_stats <- data.frame(j=c(1,2,3),
-                      s=c(n_ratio(y,nj,1,1), n_ratio(y,nj,1,2), n_ratio(y,nj,1,3)), 
-                      b=c(n_ratio(y,nj,0,1), n_ratio(y,nj,0,2), n_ratio(y,nj,0,3)) 
-)
-n_stats
 ```
 
 Apply some feature engineering
@@ -124,19 +112,43 @@ Xv <- scale_dat(Xv, X, na.rm=TRUE)
 
 Compute some initial parameters
 ```{r init params}
-n_rbf <- 0
+n_rbf <- 1
 s <- avg_median_pairwise_distance(X)
 
 # K-Fold CV partitioning
 K <- 10
 kI <- partition_data(length(y), K, random = TRUE)
 
+# number of rows and columns of data matrix
 n <- nrow(X)
 d <- ncol(X) + n_rbf
 
+# sum weights for to renormalise for AMS in partitions
 sum_w <- sum(w)
+
+# set colours for jet groups
+colours <- generate_colours(G)
 ```
 
+Take a look at how signal/background events are distributed in terms of jet groups and similarly the weights associated with them.
+```{r check weight distributions}
+w_ratio <- function(y, w, nj, label, j) {
+  sum(w[idx_jet_cat(nj, j) & y==label])/sum(w[idx_jet_cat(nj, j)])
+}
+weight_stats <- data.frame(j=c(1,2,3),
+                           s=c(w_ratio(y,w,nj,1,1), w_ratio(y,w,nj,1,2), w_ratio(y,w,nj,1,3)), 
+                            b=c(w_ratio(y,w,nj,0,1), w_ratio(y,w,nj,0,2), w_ratio(y,w,nj,0,3)) 
+)
+weight_stats
+n_ratio <- function(y, nj, label, j) {
+  sum(y==label & idx_jet_cat(nj, j))/sum(idx_jet_cat(nj, j))
+}
+n_stats <- data.frame(j=c(1,2,3),
+                      s=c(n_ratio(y,nj,1,1), n_ratio(y,nj,1,2), n_ratio(y,nj,1,3)), 
+                      b=c(n_ratio(y,nj,0,1), n_ratio(y,nj,0,2), n_ratio(y,nj,0,3)) 
+)
+n_stats
+```
 
 Use missing data pattern to partition data
 ```{r jet/missing}
@@ -246,16 +258,23 @@ for(j in 1:G){
 }
 
 ```
-If we now also plot curves of the AMS against threshold we can get a feeling for what we should choose and how consistent they are across folds (for each model type). They are all relatively noisy, although `j=3` is comfortably the worst of the three. Although the threshold that gives the maximum threshold is averaged across the folds (and that is what is listed in the legend) the results are quite noisy, and rerunning the analysis with randomly refolded data gives differences in the region of $10^{-2}$, so we don't want to overfit our threshold choice. On this logic, picking $(0.7, 0.4, 0.8)$ seems reasonable.
+If we now also plot curves of the AMS against threshold we can get a feeling for what we should choose and how consistent they are across folds (for each model type). They are all relatively noisy, although `j=3` is comfortably the worst of the three in this respect. In an effort to account for this, and reduce the chance of overfitting the thresholds, we have taken to calculating the minimum curve over the K fold curves (by taking the minimum over folds at each threshold point) and then finding the maximum threshold for this curve. The results seem more robust, and give approximately $(0.7, 0.4, 0.7)$.
 ```{r avg ams and plot roc, error=TRUE}
 ams <- sapply(ams_obj, function(x) x$calc_ams())
+avg_ams_obj <- ams_obj[[1]]
 for(j in 1:G){
   #find average auc over folds
   i1 <- get_model_idx(j, 1, K)
   i2 <- get_model_idx(j, K, K)
-  average_max_thresh <- mean(sapply(ams_obj[i1:i2], function(x) x$get_max_thresh()), na.rm=TRUE)
+  # avg_ams <- rowMeans(ams[,i1:i2])
+  min_ams <- pmax(apply(ams[, i1:i2], 1, min), 1e-1)
+  # avg_ams_obj$ams <- avg_ams/sd_ams
+  avg_ams_obj$ams <- min_ams
+  average_max_thresh <- avg_ams_obj$get_max_thresh()
+  # average_max_thresh_2 <- mean(sapply(ams_obj[i1:i2], function(x) x$get_max_thresh()), na.rm=TRUE)
+  # average_max_thresh <- 0.5*(average_max_thresh_1 + average_max_thresh_2)
   #get a plot of the k ROC curves on the same axis
-  ams_obj[[i1]]$plot_ams(lgd=paste0("Average Max. AMS at p=", round(average_max_thresh, 2)))
+  ams_obj[[i1]]$plot_ams(lgd=paste0("Max(<AMS>/mad) at p=", round(average_max_thresh, 2)))
   for (k in 2:K) {
     ams_obj[[get_model_idx(j, k, K)]]$plot_ams(add=T)
   }
@@ -337,10 +356,10 @@ Plot ROC curves for each group on the validation set, with AUC for each.
 . <- sapply(full_rocs, function(x) x$calc_auc())
 aucv <- sapply(full_rocs, function(x) round(x$auc, 3))
   #get a plot of the k ROC curves on the same axis
-full_rocs[[get_model_idx(1, 1, 1)]]$plot_curve(title=do.call(partial(sprintf, "Validation test-set, OOS AUCs (%.3f,%.3f,%.3f)"), as.list(aucv)))
+full_rocs[[get_model_idx(1, 1, 1)]]$plot_curve(title=do.call(partial(sprintf, "Validation test-set, OOS AUCs (%.2f,%.2f,%.2f)"), as.list(aucv)), col=colours[1])
 for(j in 2:G){
   #get a plot of the k ROC curves on the same axis
-  full_rocs[[get_model_idx(j, 1, 1)]]$plot_curve(add=T)
+  full_rocs[[get_model_idx(j, 1, 1)]]$plot_curve(add=T, col=colours[j])
 }
 ```
 Now plotting the AMS thresholds for the validation set, we see that they differ substantially from those we saw in the training set, despite the K-fold CV:
@@ -348,7 +367,6 @@ Now plotting the AMS thresholds for the validation set, we see that they differ 
 amsv <- sapply(amsv_obj, function(x) x$calc_ams())
 amsv_thresh <- sapply(amsv_obj, function(x) x$get_max_thresh())
 max_max_ams <- max(sapply(amsv_obj, function(x) x$max_ams))
-colours <- topo.colors(G)
 amsv_obj[[1]]$plot_ams(lgd=paste0("Max. AMS at p=", round(amsv_thresh, 2)), add=F, ylim=c(0, max_max_ams), col=colours[1])
 for(j in 2:G){
   amsv_obj[[j]]$plot_ams(add=T, col=colours[j])
