@@ -153,6 +153,7 @@ Run models
 #create lists to hold the k models and k roc curves
 models <- vector("list", G*K)
 rocs <- vector("list", G*K)
+ams_obj <- vector("list", G*K)
 b <- matrix(, nrow=d, ncol=G*K)
 
 ams <- rep(NA, length=G*K)
@@ -196,10 +197,7 @@ for (mj in 1:G) {
         #create an ROC curve object
         rocs[[model_idx]] <- ROC_curve$new(y[test_row_idx], p_hat)
         
-        # probably want to tune the threshold? why does (very) low threshold give better ams?
-        y_hat <- decide(p_hat, thresh = thresholds[j])
-
-        ams[model_idx] <- calculate_ams_partition(y[test_row_idx], y_hat, w[test_row_idx], sum_w=sum_w)
+        ams_obj[[model_idx]] <- AMS_data$new(y[test_row_idx], p_hat, w[test_row_idx], sum_w=sum_w)
     }
 }
 ```
@@ -218,6 +216,21 @@ for(j in 1:G){
 }
 
 ```
+If we now also plot curves of the AMS against threshold we can get a feeling for what we should choose and how consistent they are across folds (for each model type). They are all relatively noisy, although `j=3` is comfortably the worst of the three. Although the threshold that gives the maximum threshold is averaged across the folds (and that is what is listed in the legend) the results are quite noisy, and rerunning the analysis with randomly refolded data gives differences in the region of $10^{-2}$, so we don't want to overfit our threshold choice. On this logic, picking $(0.7, 0.4, 0.8)$ seems reasonable.
+```{r avg ams and plot roc, error=TRUE}
+ams <- sapply(ams_obj, function(x) x$calc_ams())
+for(j in 1:G){
+  #find average auc over folds
+  i1 <- get_model_idx(j, 1, K)
+  i2 <- get_model_idx(j, K, K)
+  average_max_thresh <- mean(sapply(ams_obj[i1:i2], function(x) x$get_max_thresh()), na.rm=TRUE)
+  #get a plot of the k ROC curves on the same axis
+  ams_obj[[i1]]$plot_ams(lgd=paste0("Average Max. AMS at p=", round(average_max_thresh, 2)))
+  for (k in 2:K) {
+    ams_obj[[get_model_idx(j, k, K)]]$plot_ams(add=T)
+  }
+}
+```
 
 Fit model (for each category) on whole (unfolded) dataset
 ```{r full model}
@@ -225,7 +238,6 @@ Fit model (for each category) on whole (unfolded) dataset
 #create lists to hold the k models and k roc curves
 full_models <- vector("list", G)
 full_rocs <- vector("list", G)
-full_ams_IS <- rep(NA, length=G)
 rbf_idx <- matrix(, nrow=G, ncol=n_rbf)
 # check warnings?
 for (mj in 1:G) {
@@ -256,9 +268,9 @@ for (mj in 1:G) {
 }
 ```
 
-Test on (until now unseen) validation set. Calling it validation as we can then use the summary metrics to tune free parameters.
-```{r public}
-amsv <- rep(NA, length=G)
+Test on (until now unseen) validation set. Calling it validation as we can then use the summary metrics to check free parameters, being careful not to overdo it.
+```{r validation}
+amsv_obj <- vector("list", G)
 
 # check warnings
 sum_wv <- sum(wv)
@@ -285,21 +297,31 @@ for (mj in 1:G) {
 
     #create an ROC curve object
     full_rocs[[model_idx]] <- ROC_curve$new(yv[test_row_idx], p_hat)
-    # probably want to tune the threshold? why does (very) low threshold give better ams?
-    y_hat <- decide(p_hat, thresh = thresholds[j])
 
-    amsv[model_idx] <- calculate_ams_partition(yv[test_row_idx], y_hat, wv[test_row_idx], sum_w=sum_wv)
+    amsv_obj[[model_idx]] <- AMS_data$new(yv[test_row_idx], p_hat, wv[test_row_idx], sum_w=sum_wv)
 }
 ```
 
-```{r plot public}
-for(j in 1:G){
-  #find average auc over folds
-  full_rocs[[j]]$calc_auc()
+```{r plot validation auc}
+. <- sapply(full_rocs, function(x) x$calc_auc())
+aucv <- sapply(full_rocs, function(x) round(x$auc, 3))
   #get a plot of the k ROC curves on the same axis
-  full_rocs[[get_model_idx(j, 1, 1)]]$plot_curve(title=sprintf("All training data, public test-set, OOS AUC %.3f, group %i", round(full_rocs[[j]]$auc, 3), j))
+full_rocs[[get_model_idx(1, 1, 1)]]$plot_curve(title=do.call(partial(sprintf, "Validation test-set, OOS AUCs (%.3f,%.3f,%.3f)"), as.list(aucv)))
+for(j in 2:G){
+  #get a plot of the k ROC curves on the same axis
+  full_rocs[[get_model_idx(j, 1, 1)]]$plot_curve(add=T)
 }
-aucv <- sapply(full_rocs, function(x) x$auc)
+```
+Now plotting the AMS thresholds for the validation set, we see that they differ substantially from those we saw in the training set, despite the K-fold CV:
+```{r plot validation ams thresholds}
+amsv <- sapply(amsv_obj, function(x) x$calc_ams())
+amsv_thresh <- sapply(amsv_obj, function(x) x$get_max_thresh())
+max_max_ams <- max(sapply(amsv_obj, function(x) x$max_ams))
+colours <- topo.colors(G)
+amsv_obj[[1]]$plot_ams(lgd=paste0("Max. AMS at p=", round(amsv_thresh, 2)), add=F, ylim=c(0, max_max_ams), col=colours[1])
+for(j in 2:G){
+  amsv_obj[[j]]$plot_ams(add=T, col=colours[j])
+}
 ```
 Summary results:
 ```{r print}
