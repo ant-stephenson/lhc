@@ -10,7 +10,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 ## Load packages
-```{r}
+```{r, echo=FALSE}
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -23,6 +23,32 @@ source("plot_funcs.r")
 source("lr_funcs.r")
 source("lr1_funcs.r")
 ```
+Set script parameters:
+```{r initialise script params}
+# Regularisation (L2) parameter [global]
+lambda <- 1e-3
+
+# constraint parameter for L1 Logistic regression [global]
+c <- 1
+
+# number of jet/Higgs mass groups to build different models for
+G <- 3
+
+# AMS thresholds
+thresholds <- c(0.7, 0.4, 0.8)
+
+# name to use in the .csv output of results
+result_label <- "_l1_logreg_"
+
+# choose model
+# L2 logistic regression
+model_init <- partial(logistic_model$new, lambda=lambda)
+
+# L1 logistic regression (using CVXR)
+# rm(logistic)
+# model_init <- partial(logistic_l1_model$new, c=c)
+```
+
 
 Load the data
 ```{r load data}
@@ -34,6 +60,7 @@ data <- import_data(filepath)
 ```
 
 Kaggle sets:  ”t”:training, ”b”:public leaderboard, ”v”:private leaderboard, ”u”:unused.
+Assign variables corresponding to the training set.
 ```{r training set}
 train_label = c("t")
 train_idx <- get_subset_idx(data$kaggle_s, train_label)
@@ -46,6 +73,7 @@ nj <- data$nj[train_idx]
 e_id <- data$e_id[train_idx]
 ```
 
+Assign variables corresponding to the validation set.
 ```{r validation set}
 # public leaderboard set
 val_label <- c("b")
@@ -54,6 +82,26 @@ Xv <- data$X[val_idx, ]
 yv<- data$y[val_idx]
 wv <- data$kaggle_w[val_idx]
 njv <- data$nj[val_idx]
+```
+
+Take a look at how signal/background events are distributed in terms of jet groups and similarly the weights associated with them.
+```{r check weight distributions}
+w_ratio <- function(y, w, nj, label, j) {
+  sum(w[idx_jet_cat(nj, j) & y==label])/sum(w[idx_jet_cat(nj, j)])
+}
+weight_stats <- data.frame(j=c(1,2,3),
+                           s=c(w_ratio(y,w,nj,1,1), w_ratio(y,w,nj,1,2), w_ratio(y,w,nj,1,3)), 
+                            b=c(w_ratio(y,w,nj,0,1), w_ratio(y,w,nj,0,2), w_ratio(y,w,nj,0,3)) 
+)
+weight_stats
+n_ratio <- function(y, nj, label, j) {
+  sum(y==label & idx_jet_cat(nj, j))/sum(idx_jet_cat(nj, j))
+}
+n_stats <- data.frame(j=c(1,2,3),
+                      s=c(n_ratio(y,nj,1,1), n_ratio(y,nj,1,2), n_ratio(y,nj,1,3)), 
+                      b=c(n_ratio(y,nj,0,1), n_ratio(y,nj,0,2), n_ratio(y,nj,0,3)) 
+)
+n_stats
 ```
 
 Apply some feature engineering
@@ -74,16 +122,10 @@ Xv <- Xv[, cols2keep]
 Xv <- scale_dat(Xv, X, na.rm=TRUE)
 ```
 
-Initialise parameters
+Compute some initial parameters
 ```{r init params}
 n_rbf <- 0
 s <- avg_median_pairwise_distance(X)
-
-# Regularisation (L2) parameter [global]
-lambda <- 1e-3
-
-# constraint parameter
-c <- 1
 
 # K-Fold CV partitioning
 K <- 10
@@ -91,19 +133,6 @@ kI <- partition_data(length(y), K, random = TRUE)
 
 n <- nrow(X)
 d <- ncol(X) + n_rbf
-
-# number of jet/Higgs mass groups to build different models for
-G <- 3
-thresholds <- c(0.7, 0.4, 0.8)
-
-# choose model
-# logreg
-# model_init <- partial(logistic_model$new, lambda=lambda)
-rm(logistic)
-model_init <- partial(logistic_l1_model$new, c=c)
-
-#
-result_label <- "_l1_logreg_"
 
 sum_w <- sum(w)
 ```
@@ -196,11 +225,12 @@ for (mj in 1:G) {
 
         #create an ROC curve object
         rocs[[model_idx]] <- ROC_curve$new(y[test_row_idx], p_hat)
-        
+
         ams_obj[[model_idx]] <- AMS_data$new(y[test_row_idx], p_hat, w[test_row_idx], sum_w=sum_w)
     }
 }
 ```
+Plot ROC curves for each fold for each group and calculate mean AUC over folds for each group.
 ```{r avg auc and plot roc, error=TRUE}
 auc <- sapply(rocs, function(x) x$calc_auc())
 for(j in 1:G){
@@ -302,6 +332,7 @@ for (mj in 1:G) {
 }
 ```
 
+Plot ROC curves for each group on the validation set, with AUC for each.
 ```{r plot validation auc}
 . <- sapply(full_rocs, function(x) x$calc_auc())
 aucv <- sapply(full_rocs, function(x) round(x$auc, 3))
