@@ -1,6 +1,16 @@
 source("utility_funcs.R")
 
+#' Compute newton step
+#' @param grad gradient vector
+#' @param H Hessian matrix
+#' @return step to take
+newton_step <- function(grad, H) {
+  H_svd <- svd(H)
+  H_inv <- H_svd$v %*% diag(1/H_svd$d) %*% t(H_svd$u)
 
+  deltab <- -H_inv %*% grad
+  return(deltab)
+}
 #' backtracking linesearch to find "optimal" step size
 #' @param f function we're minimising
 #' @param gradf gradient of f
@@ -30,7 +40,7 @@ backtrack_linesearch <- function(f, gradf, x, deltax, alpha, beta) {
 #' @param lambda [Optional] L2 regularisation parameter
 #' @return b vector of coefficients
 library(Matrix)
-logistic_reg <- function(X, y, r=NULL, lambda = 0) {
+logistic_reg <- function(X, y, lambda = 0) {
     invlink <- logistic
     dinvlink <- function(x) exp(-x)/(1+exp(-x))^2
     loss <- function(b) sum(log(1 + exp((-1)^y*(X %*% b))))
@@ -38,8 +48,6 @@ logistic_reg <- function(X, y, r=NULL, lambda = 0) {
 
     d <- ncol(X)
     n <- nrow(X)
-
-    if (is.null(r)) {r <- rep(1,n)}
 
     b <- matrix(0, d, 1)
     L <- loss(b) + lambda * t(b) %*% b
@@ -49,16 +57,11 @@ logistic_reg <- function(X, y, r=NULL, lambda = 0) {
 
     for (i in 1:maxIter) {
         w <- pmax(dinvlink(X %*% b), 1e-6)
-        W <- Diagonal(x = as.numeric(w) * r)
+        W <- Diagonal(x = as.numeric(w))
         H <- t(X) %*% W %*% X + 2 * lambda * diag(rep(1, d))
         grad <- gradloss(b)
 
-        #an option that does not compute H^-1
-        #marginally quicker..
-        H_svd <- svd(H)
-        H_inv <- H_svd$v %*% diag(1/H_svd$d) %*% t(H_svd$u)
-
-        deltab <- -H_inv %*% grad
+        deltab <- newton_step(grad, H)
 
         step <- backtrack_linesearch(loss, gradloss, b, deltab, 0.3, 0.2)
 
@@ -74,6 +77,7 @@ logistic_reg <- function(X, y, r=NULL, lambda = 0) {
     }
     return(b)
 }
+
 
 #defining an object class for a logistic regression model
 logistic_model <- setRefClass("logistic_model",
@@ -101,7 +105,7 @@ logistic_model$methods(
   },
 
   #also defines a method to use this model to predict class of new points
-  predict = function(X_test){
+  predict  = function(X_test){
     return(logistic(as.matrix(X_test) %*% .self$coeffs))
   }
 )
