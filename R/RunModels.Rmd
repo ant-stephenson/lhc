@@ -30,7 +30,7 @@ Set script parameters:
 lambda <- 10
 
 # constraint parameter for L1 Logistic regression [global]
-c <- 1
+C <- 1
 
 # number of jet/Higgs mass groups to build different models for
 G <- 3
@@ -43,11 +43,11 @@ result_label <- "_l1_logreg_"
 
 # choose model
 # L2 logistic regression
-model_init <- partial(logistic_model$new, lambda=lambda)
+# model_init <- partial(logistic_model$new, lambda=lambda)
 
 # L1 logistic regression (using CVXR)
-# rm(logistic)
-# model_init <- partial(logistic_l1_model$new, c=c)
+rm(logistic)
+model_init <- partial(logistic_l1_model$new, C=C)
 
 
 # model_init <- function(X, y, w=w) {

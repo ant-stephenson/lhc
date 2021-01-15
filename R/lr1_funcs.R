@@ -1,10 +1,10 @@
 library(CVXR)
 
-fit_l1_logreg <- function(X, y, c=1) {
+fit_l1_logreg <- function(X, y, C=1) {
   nb <- ncol(X)
   b <- Variable(nb, 1)
   obj <- -sum(X[y == 0, ] %*% b) - sum(logistic(-X %*% b))
-  constr <- list(abs(b[2:nb]) <= c)
+  constr <- list(abs(b[2:nb]) <= C)
   prob <- Problem(Maximize(obj), constr)
   result <- solve(prob)
   b_res_con <- result$getValue(b)
@@ -27,14 +27,14 @@ logistic_l1_model <- setRefClass("logistic_l1_model",
 #uses the coefficients to find p(y=1) (probability of signal)
 
 logistic_l1_model$methods(
-  initialize = function(X_train, y_train, c=1){
+  initialize = function(X_train, y_train, C=1){
     X_train <- as.matrix(X_train)
     y_train <- as.numeric(y_train)
 
     .self$X <- X_train
     .self$y <- y_train
 
-    b <- fit_l1_logreg(X_train, y_train, c=c)
+    b <- fit_l1_logreg(X_train, y_train, C=C)
     .self$coeffs <- as.numeric(b)
     .self$prob <- as.numeric(logisticf(X_train %*% b))
   },
