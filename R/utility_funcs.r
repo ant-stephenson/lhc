@@ -108,6 +108,7 @@ idx_higgs_mass <- function(X, j, G) {
 #' @param nj Vector of number of jets for each point
 #' @return nested list of column names
 set_features_to_rm <- function(X, G, kI, nj) {
+  jet_cats <- rep(c(1:3), G/3)
   K <- max(kI)
   features_to_rm <- list(list(), list(), list())
   for (mj in 1:G) {
@@ -392,7 +393,8 @@ tuned_kernel <- function(ckernel, ...) {
 #' @param X covariate matrix (nxd)
 #' @param ckernel kernel function with args (x_i, x_j)
 #' @return K kernel matrix (nxn)
-calc_K <- function(X, ckernel){
+calc_K <- function(X, ckernel, ...){
+    ckernel <- tuned_kernel(ckernel, ...)
     n <- nrow(X)
     K <- matrix(, nrow=n, ncol=n)
     for (i in 1:n){
