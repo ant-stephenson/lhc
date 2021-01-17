@@ -1,3 +1,4 @@
+library(purrr)
 source("utility_funcs.R")
 
 #' Compute newton step
@@ -11,6 +12,8 @@ newton_step <- function(grad, H) {
   deltab <- -H_inv %*% grad
   return(deltab)
 }
+
+
 #' backtracking linesearch to find "optimal" step size
 #' @param f function we're minimising
 #' @param gradf gradient of f
@@ -20,7 +23,7 @@ newton_step <- function(grad, H) {
 #' @param beta linesearch update parameter
 backtrack_linesearch <- function(f, gradf, x, deltax, alpha, beta) {
   linesearch_cond <- function(step) {
-    f(x + step*deltax) > f(x) + alpha * step * t(gradf(x)) %*% deltax 
+    f(x + step*deltax) > f(x) + alpha * step * t(gradf(x)) %*% deltax
   }
   max_iter <- 10
   iter <- 0
@@ -32,6 +35,79 @@ backtrack_linesearch <- function(f, gradf, x, deltax, alpha, beta) {
   return(step)
 }
 
+#' x contains lambda (dual var) as well
+#' @param f objective function
+#' @param dualf dual objective function
+#' @param gradf residual vector
+#' @param Hf Hessian for residual
+#' @param x primal-dual point
+#' @param m number of inequality constraints
+#' @param mu interior-point step parameter
+#' @param eps tolerance for problem
+#' @param eps_feas tolerance for feasibility of primal-dual points
+interior_point_fit <- function(f, dualf, gradf, Hf, x, m, mu=10, eps=1e-6, eps_feas=1e-6) {
+  conv_cond <- function(x, tt, eta) {
+    all(abs(gradf(x, tt)) <= eps_feas) & (eta <= eps)
+  }
+
+  eta <- f(x) - dualf(x)
+  tt <- m/eta
+
+  max_iter <- 100
+  iter <- 0
+  while (!conv_cond(x, tt, eta) & iter < max_iter) {
+    print(eta)
+    iter <- iter + 1
+    tt <- mu * m / eta
+    delta <- newton_step(gradf(x, tt), Hf(x))
+    step <- backtrack_linesearch(f, partial(gradf, tt=tt) , x, delta, 0.3, 0.2)
+    x <- x + step * delta
+    eta <- f(x) - dualf(x)
+  }
+  print(iter)
+  return(x)
+}
+
+l1_logistic_reg <- function(X, y, C) {
+  invlink <- logisticf
+  dinvlink <- function(x) exp(-x)/(1+exp(-x))^2
+  loss <- function(b) {
+    nx <- length(b)/3
+    sum(log(1 + exp((-1)^y*(X %*% b[1:nx]))))
+  }
+  grad <- function(b, tt) {
+    nx <- length(b)/3
+    m <- 2 * nx
+    lambda <- b[-(1:nx)]
+    g <- -t(X) %*% (y - invlink(X %*% b[1:nx])) + sum(lambda)
+    g <- rbind(g, -t(t(lambda * c(-b[1:nx]-C, b[1:nx]-C) - 1/tt)))
+  }
+  hess <- function(b) {
+    nx <- length(b)/3
+    m <- 2 * nx
+    lambda <- b[-(1:nx)]
+    w <- pmax(dinvlink(X %*% b[1:nx]), 1e-6)
+    W <- Diagonal(x = as.numeric(w))
+    H <- t(X) %*% W %*% X
+    ones <- rbind(diag(rep(1,nx)), diag(rep(1,nx)))
+    H <- cbind(H, t(ones))
+    extra_rows <- cbind(-ones * lambda, -diag(c(-b[1:nx] - C, b[1:nx] - C)))
+    H <- rbind(H, extra_rows)
+  }
+  dual <- function(b) {
+    nx <- length(b)/3
+    m <- 2 * nx
+    lambda <- b[-(1:nx)]
+    return(loss(b) + sum(lambda * (abs(b[1:nx]) - C)))
+  }
+  d <- ncol(X)
+  n <- nrow(X)
+
+  b <- matrix(c(rep(0, d), rep(1, 2*d)), 3*d, 1)
+
+  b <- interior_point_fit(loss, dual, grad, hess, b, 2*d, mu=10, eps=1e-6, eps_feas=1e-6)
+}
+
 #' Fit a logistic regression model by IRWLS - same thing glm does
 #'
 #' @param X covariate matrix
@@ -41,7 +117,7 @@ backtrack_linesearch <- function(f, gradf, x, deltax, alpha, beta) {
 #' @return b vector of coefficients
 library(Matrix)
 logistic_reg <- function(X, y, lambda = 0) {
-    invlink <- logistic
+    invlink <- logisticf
     dinvlink <- function(x) exp(-x)/(1+exp(-x))^2
     loss <- function(b) sum(log(1 + exp((-1)^y*(X %*% b))))
     gradloss <- function(b) -t(X) %*% (y - invlink(X %*% b)) + 2 * lambda * b
@@ -101,11 +177,17 @@ logistic_model$methods(
 
     b <- logistic_reg(X_train, y_train, lambda=lambda)
     .self$coeffs <- as.numeric(b)
-    .self$prob <- as.numeric(logistic(X_train %*% b))
+    .self$prob <- as.numeric(logisticf(X_train %*% b))
   },
 
   #also defines a method to use this model to predict class of new points
   predict  = function(X_test){
-    return(logistic(as.matrix(X_test) %*% .self$coeffs))
+    return(logisticf(as.matrix(X_test) %*% .self$coeffs))
   }
 )
+
+X <- model.matrix(~1 + x1 + x2, data.frame(x1=rnorm(1000), x2=rnorm(1000)))
+b <- abs(rnorm(3)) + 1
+y <- rbinom(1000, 1, logisticf(X %*% b))
+mod <- l1_logistic_reg(X, y, 1)
+mod2 <- logistic_reg(X, y)

@@ -332,8 +332,8 @@ get_valid_cols <- function(header, features_to_rm, j) {
 
 #' Calculate logistic function
 #' @param x float
-#' @return logistic(x)
-logistic <- function(x) {
+#' @return logisticf(x)
+logisticf <- function(x) {
     1/(1 + exp(-x))
 }
 

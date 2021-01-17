@@ -2,7 +2,7 @@ library(testthat)
 library(fs)
 
 source_path <- path_join(c(path_dir(path_dir(getwd())), "R"))
-filepath <- path_join(c(source_path, "model_funcs.r"))
+filepath <- path_join(c(source_path, "lr_funcs.r"))
 
 source(filepath)
 
@@ -19,7 +19,7 @@ test_logistic_reg_implementation <- function(X ,y) {
 test_that("logistic regression", {
   X <- model.matrix(~1 + x1 + x2, data.frame(x1=rnorm(1000), x2=rnorm(1000)))
   b <- rnorm(3)
-  y <- rbinom(1000, 1, logistic(X %*% b))
+  y <- rbinom(1000, 1, logisticf(X %*% b))
   max_diff <- test_logistic_reg_implementation(data.frame(X), y)
   expect_lt(max_diff, 1e-6)
 })
