@@ -1,5 +1,4 @@
-library(CVXR)
-
+#' @import CVXR
 fit_l1_logreg <- function(X, y, C=1) {
   nb <- ncol(X)
   b <- Variable(nb, 1)
@@ -15,6 +14,7 @@ logisticf <- function(x) {
 }
 
 #defining an object class for a logistic regression model
+#' @import methods
 logistic_l1_model <- setRefClass("logistic_l1_model",
                               fields = c(
                                 X = "matrix",
@@ -25,7 +25,7 @@ logistic_l1_model <- setRefClass("logistic_l1_model",
 #to initialise provide a design matrix and output label
 #then uses the logistic regression implementation to find the coefficients
 #uses the coefficients to find p(y=1) (probability of signal)
-
+#' @import methods
 logistic_l1_model$methods(
   initialize = function(X_train, y_train, C=1){
     X_train <- as.matrix(X_train)

@@ -73,7 +73,7 @@ scale_dat <- function(X, ref, na.rm=FALSE){
 
 #' Get boolean vector of rows with j=0,1 or 2+
 #' @param nj Vector of number of jets for each point
-#' @parma j jet group
+#' @param j jet group
 idx_jet_cat <- function(nj, j) {
     if (j == 1) {
         nj == 0
@@ -86,7 +86,7 @@ idx_jet_cat <- function(nj, j) {
 
 #' Get boolean index for rows with missing/or not missing (depending on G/j) Higgs mass
 #' @param X matrix of covariates
-#' @parma j jet group
+#' @param j jet group
 #' @param G number of jet groups
 #' @return vector of bools
 idx_higgs_mass <- function(X, j, G) {
@@ -190,7 +190,7 @@ get_rbf_centroids <- function(X, n_centroids, idx=NULL) {
     if (is.null(idx)) {
         idx <- sample(1:n, n_centroids)
     }
-    Xi <- matrix(, nrow=n_centroids, ncol=d)
+    Xi <- matrix(NA, nrow=n_centroids, ncol=d)
     for (i in 1:n_centroids) {
         Xi[i, ] <- unlist(X[idx[i],])
     }
@@ -401,7 +401,7 @@ tuned_kernel <- function(ckernel, ...) {
 calc_K <- function(X, ckernel, ...){
     ckernel <- tuned_kernel(ckernel, ...)
     n <- nrow(X)
-    K <- matrix(, nrow=n, ncol=n)
+    K <- matrix(NA, nrow=n, ncol=n)
     for (i in 1:n){
         for (j in 1:n){
             K[i,j] <- ckernel(X[i,], X[j,])
@@ -422,8 +422,8 @@ svm_predict <- function(X_test, X_train, y, L, ckernel=lin_kernel) {
     X_train <- as.matrix(X_train)
     n_test <- nrow(X_test)
     n_train <- nrow(X_train)
-    k <- matrix(, nrow=n_train, ncol=n_test)
-    K <- matrix(, nrow=n_train, ncol=n_train)
+    k <- matrix(NA, nrow=n_train, ncol=n_test)
+    K <- matrix(NA, nrow=n_train, ncol=n_train)
     for (i in 1:n_train){
         for (m in 1:n_test){
             k[i,m] <- ckernel(X_test[m,], X_train[i,])
