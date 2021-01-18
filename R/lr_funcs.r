@@ -186,8 +186,8 @@ logistic_model$methods(
   }
 )
 
-X <- model.matrix(~1 + x1 + x2, data.frame(x1=rnorm(1000), x2=rnorm(1000)))
-b <- abs(rnorm(3)) + 1
-y <- rbinom(1000, 1, logisticf(X %*% b))
-mod <- l1_logistic_reg(X, y, 1)
-mod2 <- logistic_reg(X, y)
+# X <- model.matrix(~1 + x1 + x2, data.frame(x1=rnorm(1000), x2=rnorm(1000)))
+# b <- abs(rnorm(3)) + 1
+# y <- rbinom(1000, 1, logisticf(X %*% b))
+# mod <- l1_logistic_reg(X, y, 1)
+# mod2 <- logistic_reg(X, y)
