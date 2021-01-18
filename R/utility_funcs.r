@@ -257,8 +257,9 @@ permute_matrix <- function(X, r=1) {
 #' @param b order of polynomial
 #' @return X augmented matrix of covariates (i.e. X \oplus Xb \ cor(X \oplus Xb > 0.8))
 poly_transform <- function(X, b=2){
+  orig_cols <- colnames(X)
     for(i in 2:b){
-        Xb <- apply(X[, ], 2, function(col) col^b)
+        Xb <- apply(X[, orig_cols], 2, function(col) col^b)
         colnames(Xb) <- paste0(colnames(Xb), "^", b)
         X <- cbind(X, Xb)
     }
@@ -266,6 +267,10 @@ poly_transform <- function(X, b=2){
     cors <- cor(X)
     cors[!lower.tri(cors)] <- 0
     X <- X[, !apply(cors,2,function(x) any(abs(x) > 0.80, na.rm=TRUE))]
+
+    #remove columns with particularly large values might overflow
+    max_val <- apply(X, 2, function(x) log10(max(x, na.rm=TRUE)))
+    X <- X[, names(max_val[max_val < 6])]
     return(X)
 }
 

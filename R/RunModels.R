@@ -27,7 +27,7 @@ filename <- "atlas-higgs-challenge-2014-v2.csv"
 filepath <- path_join(c(source_path, "LHC_dump", "R", filename))
 data <- import_data(filepath)
 
-run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, lambda, C=1, results_label=2, iter=0, thresholds=c(0.4,0.4,0.4), do_poly_transform=FALSE) {
+run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, lambda, C=1, results_label=2, iter=0, thresholds=c(0.4,0.4,0.4), poly_order=1) {
 
   ## ----training set------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   train_idx <- get_subset_idx(data$kaggle_s, train_label)
@@ -56,14 +56,15 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
   Xv <- reduce_features(Xv)
   Xv <- invert_angle_sign(Xv)
 
-if (do_poly_transform) {
-  X <- poly_transform(X, 2)
-  Xv <- poly_transform(Xv, 2)
-}
+  if (poly_order > 1) {
+    X <- poly_transform(X, poly_order)
+    Xv <- poly_transform(Xv, poly_order)
+  }
 
   # ensure X and Xv have the same columns
-  cols2keep <- setdiff(colnames(Xv), setdiff(colnames(Xv), colnames(X)))
+  cols2keep <- intersect(colnames(X), colnames(Xv))
   Xv <- Xv[, cols2keep]
+  X <- X[, cols2keep]
 
   Xv <- scale_dat(Xv, X, na.rm=TRUE)
 
@@ -235,12 +236,12 @@ if (do_poly_transform) {
   filename <- sprintf("results_%s.csv", results_label)
   model_type <- class(models[[1]])[1]
   if (!file.exists(filename)){
-    result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "model_type"=model_type, "n_rbf"=n_rbf, "lambda"=lambda, "c"=C, "poly"=do_poly_transform, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams), "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
+    result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "model_type"=model_type, "n_rbf"=n_rbf, "lambda"=lambda, "c"=C, "poly"=poly_order, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams), "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
     write.table(as.data.frame(result), file = filename, append = TRUE, sep = ",",
                 eol = "\n", na = "NA", dec = ".", row.names = FALSE,
                 col.names = TRUE, qmethod = c("escape", "double"))
   } else {
-    result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "model_type"=model_type, "n_rbf"=n_rbf, "lambda"=lambda, "c" = C, "poly"=do_poly_transform, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams), "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
+    result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "model_type"=model_type, "n_rbf"=n_rbf, "lambda"=lambda, "c" = C, "poly"=poly_order, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams), "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
     write.table(as.data.frame(result), file = filename, append = TRUE, sep = ",",
                 eol = "\n", na = "NA", dec = ".", row.names = FALSE,
                 col.names = FALSE, qmethod = c("escape", "double"))
@@ -258,26 +259,26 @@ K <- 10
 G <- 3
 n_rbf <- 0:5
 lambda <- logspace(1e-4, 100, 5)
-C <- logspace(1, 100, 5)
-thresholds <- c(0.4, 0.4, 0.4)
-do_poly_transform = FALSE
+C <- 1#logspace(1, 100, 5)
+thresholds <- c(0.6, 0.4, 0.6)
+poly_order = 3
 # L1 logistic regression (using CVXR)
 # rm(logistic)
 # model_init <- partial(logistic_l1_model$new, C=C)
-results_label <- "experiments1"
+results_label <- "experiments2"
 
 library(foreach)
 library(doParallel)
 registerDoParallel(3)
 
-n_grid_2 <- length(C)
+n_grid_2 <- length(lambda)
 
 # run them all
-foreach (i=1:length(n_rbf)) %do% {
+foreach (i=1:length(n_rbf)) %dopar% {
   for (ii in 1:n_grid_2) {
     print(10*(i-1) + ii)
-    # model_init <- partial(logistic_model$new, lambda=lambda[ii])
-    model_init <- partial(logistic_l1_model$new, C=C[ii])
-    run_models(model_init, data, train_label, val_label, K, G, n_rbf[i], lambda[ii], C[ii], results_label=results_label, iter=10*(i-1) + ii, thresholds=thresholds, do_poly_transform=do_poly_transform)
+    model_init <- partial(logistic_model$new, lambda=lambda[ii])
+    # model_init <- partial(logistic_l1_model$new, C=C[ii])
+    run_models(model_init, data, train_label, val_label, K, G, n_rbf[i], lambda[ii], C[ii], results_label=results_label, iter=10*(i-1) + ii, thresholds=thresholds, poly_order=poly_order)
   }
 }

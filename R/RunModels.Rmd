@@ -35,18 +35,19 @@ C <- 1
 # number of jet/Higgs mass groups to build different models for
 G <- 3
 
+poly_order <- 3
+
 # AMS thresholds
-thresholds <- c(0.4, 0.4, 0.4)
+thresholds <- c(0.6, 0.4, 0.6)
 
 # name to use in the .csv output of results
-result_label <- "_l1_logreg_"
+result_label <- "test_poly3"
 
-# choose model
+# choose model. Interchangeable so long as we have implemented polymorphism across the model classes so that they share a common interface. Use "partial" to call with optional parameters to enforce an interface of f(X,y)
 # L2 logistic regression
 # model_init <- partial(logistic_model$new, lambda=lambda)
 
-# L1 logistic regression (using CVXR)
-rm(logistic)
+# Constrained logistic regression (using CVXR)
 model_init <- partial(logistic_l1_model$new, C=C)
 
 
@@ -100,12 +101,15 @@ X <- invert_angle_sign(X)
 Xv <- reduce_features(Xv)
 Xv <- invert_angle_sign(Xv)
 
-# X <- poly_transform(X, 2)
-# Xv <- poly_transform(Xv, 2)
+if (poly_order > 1) {
+  X <- poly_transform(X, poly_order)
+  Xv <- poly_transform(Xv, poly_order)
+}
 
 # ensure X and Xv have the same columns
-cols2keep <- setdiff(colnames(Xv), setdiff(colnames(Xv), colnames(X)))
+cols2keep <- intersect(colnames(X), colnames(Xv))
 Xv <- Xv[, cols2keep]
+X <- X[, cols2keep]
 
 Xv <- scale_dat(Xv, X, na.rm=TRUE)
 ```
@@ -131,6 +135,7 @@ colours <- generate_colours(G)
 ```
 
 Take a look at how signal/background events are distributed in terms of jet groups and similarly the weights associated with them.
+**THIS SHOULD GO IN EXPLORATORY DATA ANALYSIS**
 ```{r check weight distributions}
 w_ratio <- function(y, w, nj, label, j) {
   sum(w[idx_jet_cat(nj, j) & y==label])/sum(w[idx_jet_cat(nj, j)])
@@ -170,6 +175,8 @@ midx
 ```
 
 Count the number of rows of data in each category and fold, with the first column being the training set and the second being the test for each fold/category
+
+**THIS SHOULD GO IN EXPLORATORY DATA ANALYSIS**
 ```{r number of rows}
 n_rows_p_partition <- matrix(, nrow=G*K, ncol=2)
 for (mj in 1:G) {
@@ -205,6 +212,7 @@ for (mj in 1:G) {
     # loop over sets of jet number {0, 1, 2+} and mH presence/absence
     for (k in 1:K) {
         j <- jet_cats[mj]
+        # get train and test split indices for this jet category (and/or higgs mass) and fold
         fit_row_idx <- kI != k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
         test_row_idx <- kI == k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
 
@@ -219,25 +227,30 @@ for (mj in 1:G) {
           Xtest <- X[test_row_idx, ]
         }
         
+        # get indices for columns to include for this jet category
         col_idx <- get_valid_cols(colnames(X), features_to_rm, mj)
 
+        # define train and test matricies
         Xtrain <- as.matrix(Xtrain[, col_idx])
         Xtest <- as.matrix(Xtest[, col_idx])
         
+        # standardize the data (using training as a reference for the test set to avoid using any test information)
         Xtest <- scale_dat(Xtest, Xtrain)
         Xtrain <- scale_dat(Xtrain, Xtrain)
 
+        # get index of this model, from jet category and fold (to retrieve in results arrays)
         model_idx <- get_model_idx(mj, k, K)
 
-        #fit a logistic regression model to the CV training data
+        # fit a logistic regression model to the CV training data
         models[[model_idx]] <- model_init(X=Xtrain, y=y[fit_row_idx])
   
-        #use it to predict the classifications of the test data
+        # use it to predict the classifications of the test data
         p_hat <- models[[model_idx]]$predict(Xtest)
 
-        #create an ROC curve object
+        # create an ROC curve object
         rocs[[model_idx]] <- ROC_curve$new(y[test_row_idx], p_hat)
 
+        # create an AMS curve object
         ams_obj[[model_idx]] <- AMS_data$new(y[test_row_idx], p_hat, w[test_row_idx], sum_w=sum_w)
     }
 }
@@ -258,7 +271,7 @@ for(j in 1:G){
 }
 
 ```
-If we now also plot curves of the AMS against threshold we can get a feeling for what we should choose and how consistent they are across folds (for each model type). They are all relatively noisy, although `j=3` is comfortably the worst of the three in this respect. In an effort to account for this, and reduce the chance of overfitting the thresholds, we have taken to calculating the minimum curve over the K fold curves (by taking the minimum over folds at each threshold point) and then finding the maximum threshold for this curve. The results seem more robust, and give approximately $(0.7, 0.4, 0.7)$.
+If we now also plot curves of the AMS against threshold we can get a feeling for what we should choose and how consistent they are across folds (for each model type). They are all relatively noisy, although `j=3` is comfortably the worst of the three in this respect. In an effort to account for this, and reduce the chance of overfitting the thresholds, we have taken to calculating the minimum curve over the K fold curves (by taking the minimum over folds at each threshold point) and then finding the maximum threshold for this curve. The results seem more robust, and give approximately $(0.6, 0.4, 0.6)$.
 ```{r avg ams and plot roc, error=TRUE}
 ams <- sapply(ams_obj, function(x) x$calc_ams())
 avg_ams_obj <- ams_obj[[1]]
@@ -267,6 +280,7 @@ for(j in 1:G){
   i1 <- get_model_idx(j, 1, K)
   i2 <- get_model_idx(j, K, K)
   # avg_ams <- rowMeans(ams[,i1:i2])
+  # calculate the minimum AMS over the curves at each point to get an overall lower bound curve
   min_ams <- pmax(apply(ams[, i1:i2], 1, min), 1e-1)
   # avg_ams_obj$ams <- avg_ams/sd_ams
   avg_ams_obj$ams <- min_ams
@@ -274,7 +288,7 @@ for(j in 1:G){
   # average_max_thresh_2 <- mean(sapply(ams_obj[i1:i2], function(x) x$get_max_thresh()), na.rm=TRUE)
   # average_max_thresh <- 0.5*(average_max_thresh_1 + average_max_thresh_2)
   #get a plot of the k ROC curves on the same axis
-  ams_obj[[i1]]$plot_ams(lgd=paste0("Max(<AMS>/mad) at p=", round(average_max_thresh, 2)))
+  ams_obj[[i1]]$plot_ams(lgd=paste0("Max(Min(AMS)) at p=", round(average_max_thresh, 2)))
   for (k in 2:K) {
     ams_obj[[get_model_idx(j, k, K)]]$plot_ams(add=T)
   }
@@ -305,14 +319,17 @@ for (mj in 1:G) {
           Xtrain <- X[fit_row_idx, ]
     }
 
+    # get indices for columns to include for this jet category
     col_idx <- get_valid_cols(colnames(Xtrain), features_to_rm, mj)
 
+    # standardize the data 
     Xtrain <- as.matrix(Xtrain[, col_idx])
     Xtrain <- scale_dat(Xtrain, Xtrain)
 
+    # get index of this model, from jet category and fold (to retrieve in results arrays)
     model_idx <- get_model_idx(mj, 1, 1)
 
-    #fit a logistic regression model to the CV training data
+    #fit a logistic regression model to the all of the training data
     full_models[[model_idx]] <- model_init(X=Xtrain, y=y[fit_row_idx])
 }
 ```
@@ -355,14 +372,14 @@ Plot ROC curves for each group on the validation set, with AUC for each.
 ```{r plot validation auc}
 . <- sapply(full_rocs, function(x) x$calc_auc())
 aucv <- sapply(full_rocs, function(x) round(x$auc, 3))
-  #get a plot of the k ROC curves on the same axis
+# get a plot of the k ROC curves on the same axis
 full_rocs[[get_model_idx(1, 1, 1)]]$plot_curve(title=do.call(partial(sprintf, "Validation test-set, OOS AUCs (%.2f,%.2f,%.2f)"), as.list(aucv)), col=colours[1])
 for(j in 2:G){
   #get a plot of the k ROC curves on the same axis
   full_rocs[[get_model_idx(j, 1, 1)]]$plot_curve(add=T, col=colours[j])
 }
 ```
-Now plotting the AMS thresholds for the validation set, we see that they differ substantially from those we saw in the training set, despite the K-fold CV:
+Now plotting the AMS thresholds for the validation set, we see that they differ substantially from those we saw in the training set, despite the K-fold CV. The validation set is much smaller than the full training set however, so we would expect it to be less reliable due to randomness in the data set. 
 ```{r plot validation ams thresholds}
 amsv <- sapply(amsv_obj, function(x) x$calc_ams())
 amsv_thresh <- sapply(amsv_obj, function(x) x$get_max_thresh())
@@ -381,9 +398,10 @@ sprintf("Validation set AUC = %.2f ± %.1f", mean(aucv), mad(aucv))
 sprintf("Validation set AMS = %.2f ± %.1f", mean(amsv), mad(amsv))
 ```
 
+Save the output results to a .csv file.
 ```{r record to file}
 result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "n_rbf"=n_rbf, "lambda"=lambda, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams), "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
-write.table(as.data.frame(result), file = sprintf("results%s.csv", result_label), append = TRUE, sep = ",",
+write.table(as.data.frame(result), file = sprintf("results_%s.csv", result_label), append = TRUE, sep = ",",
 eol = "\n", na = "NA", dec = ".", row.names = FALSE,
 col.names = FALSE, qmethod = c("escape", "double"))
 ```
