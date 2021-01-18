@@ -1,0 +1,25 @@
+---  
+title: Notebook
+author: Anthony Stephenson
+output: 
+  pdf_document:
+    extra_dependencies: ["dirtree"]
+    toc: yes 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r child = 'DataAnalysis.rmd'}
+```
+
+```{r child = 'SVM_markdown.rmd'}
+```
+
+```{r child = 'RunExperiments.rmd'}
+```
+
+```{r child = 'AnalyseExperiments.rmd'}
+```
+
