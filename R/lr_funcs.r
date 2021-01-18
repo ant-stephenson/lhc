@@ -1,10 +1,11 @@
-library(purrr)
+#library(purrr)
 #source("utility_funcs.R")
 
 #' Compute newton step
 #' @param grad gradient vector
 #' @param H Hessian matrix
 #' @return step to take
+#' @import purrr
 newton_step <- function(grad, H) {
   H_svd <- svd(H)
   H_inv <- H_svd$v %*% diag(1/H_svd$d) %*% t(H_svd$u)
@@ -21,6 +22,8 @@ newton_step <- function(grad, H) {
 #' @param deltax newton step
 #' @param alpha linesearch parameter
 #' @param beta linesearch update parameter
+#'
+#' @import purrr
 backtrack_linesearch <- function(f, gradf, x, deltax, alpha, beta) {
   linesearch_cond <- function(step) {
     f(x + step*deltax) > f(x) + alpha * step * t(gradf(x)) %*% deltax
@@ -68,6 +71,7 @@ interior_point_fit <- function(f, dualf, gradf, Hf, x, m, mu=10, eps=1e-6, eps_f
   return(x)
 }
 
+#' @import purrr
 l1_logistic_reg <- function(X, y, C) {
   invlink <- logisticf
   dinvlink <- function(x) exp(-x)/(1+exp(-x))^2
@@ -115,7 +119,7 @@ l1_logistic_reg <- function(X, y, C) {
 #' @param r [Optional] weight vector
 #' @param lambda [Optional] L2 regularisation parameter
 #' @return b vector of coefficients
-library(Matrix)
+#' @import Matrix
 logistic_reg <- function(X, y, lambda = 0) {
     invlink <- logisticf
     dinvlink <- function(x) exp(-x)/(1+exp(-x))^2
@@ -156,6 +160,7 @@ logistic_reg <- function(X, y, lambda = 0) {
 
 
 #defining an object class for a logistic regression model
+#' @import methods
 logistic_model <- setRefClass("logistic_model",
                                  fields = c(
                                    X = "matrix",
@@ -166,7 +171,7 @@ logistic_model <- setRefClass("logistic_model",
 #to initialise provide a design matrix and output label
 #then uses the logistic regression implementation to find the coefficients
 #uses the coefficients to find p(y=1) (probability of signal)
-
+#' @import methods
 logistic_model$methods(
   initialize = function(X_train, y_train, lambda=1e-6){
     X_train <- as.matrix(X_train)

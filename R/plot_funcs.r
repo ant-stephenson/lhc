@@ -103,6 +103,7 @@ plot_coefs <- function(b) {
     }
 }
 
+#' @import methods
 ROC_curve <- setRefClass("ROC_curve",
                                  fields = c(
                                    thresholds = "numeric",
@@ -110,6 +111,7 @@ ROC_curve <- setRefClass("ROC_curve",
                                    TP = "numeric",
                                    auc = "numeric"))
 
+#' @import methods
 ROC_curve$methods(
   initialize = function(y, p_hat){
     #we want just a set of thresholds that vary FP and FN rate from 0 to 1
@@ -163,7 +165,7 @@ ROC_curve$methods(
   }
 )
 
-
+#' @import methods
 AMS_data <- setRefClass("AMS_data",
                         fields = c(
                           y = "numeric",
@@ -174,6 +176,7 @@ AMS_data <- setRefClass("AMS_data",
                           ams = "numeric",
                           max_ams = "numeric",
                           max_thresh = "numeric"))
+#' @import methods
 AMS_data$methods(
   #to initialise provide a list of true labels, probabilities P(y="s"), and scaled weights
   initialize = function(y, prob, weights, sum_w=NULL){
