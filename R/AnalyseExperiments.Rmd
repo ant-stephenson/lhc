@@ -1,0 +1,57 @@
+---
+title: "Analyse Experiments"
+author: "Anthony Stephenson"
+date: "1/18/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r import}
+library(ggplot2)
+library(dplyr)
+
+source("plot_funcs.R")
+```
+
+# Analyse Experiments
+
+```{r import}
+filepath <- "results_experiments2.csv"
+exp_data <- read.csv(filepath)
+# sort by maximum auc and ams results
+# exp_data <- exp_data[order(-exp_data[, "auc"], -exp_data[, "ams"], exp_data[, "lambda"]), ]
+
+```
+
+```{r plot}
+# define function to plot against our metric
+plot_metric <- function(data, xlabel, ylabel, loop_label, filt0=TRUE, ...) {
+  ntrials <- max(data[, loop_label])
+  colours <- generate_colours(ntrials)
+  filt <- data[, loop_label] == 0 & filt0
+  plot(data[filt, xlabel], data[filt, ylabel], col=colours[1], type="lin", xlab=xlabel, ylab=ylabel, main=sprintf("%s vs %s for different %s", ylabel, xlabel, loop_label), ...)
+  for (nr in 1:ntrials) {
+    filt <- data[, loop_label] == nr & filt0
+    lines(data[filt, xlabel], data[filt, ylabel], col=colours[nr])
+  }
+  legend("bottomleft", legend=c(0:ntrials), col=colours)
+}
+
+# order by our x variable
+exp_data <- exp_data[order(exp_data[, "lambda"]), ]
+
+filt0 <- exp_data[, "poly"]==1
+plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
+plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
+
+filt0 <- exp_data[, "poly"]==2
+plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
+plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
+
+filt0 <- exp_data[, "poly"]==3
+plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
+plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
+```
