@@ -1,5 +1,5 @@
 library(purrr)
-source("utility_funcs.R")
+#source("utility_funcs.R")
 
 #' Compute newton step
 #' @param grad gradient vector

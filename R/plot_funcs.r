@@ -1,5 +1,5 @@
-library(ggplot2)
-source("utility_funcs.r")
+#library(ggplot2)
+#source("utility_funcs.r")
 
 #' Function to generate colours that are quite distinct
 #' @param ncolours number of colours we want
