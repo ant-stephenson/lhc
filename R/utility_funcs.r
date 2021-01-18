@@ -52,7 +52,7 @@ import_data <- function(filepath="atlas-higgs-challenge-2014-v2.csv") {
 #' @param X matrix of covariates
 #' @param ref matrix of covariates from which to calculate mu and sd
 #' @param na.rm flag to be compatible with colMeans and sd (to ignore NA)
-#' @return X augmented matrix of covariates, standardized \oplus intercept column
+#' @return augmented matrix of covariates, standardized and an intercept column
 scale_dat <- function(X, ref, na.rm=FALSE){
   if(ncol(X) != ncol(ref)) stop('Two inputs must have the same number of columns')
 
@@ -146,9 +146,12 @@ reduce_features <- function(X) {
     # new_phi=(rot_phi+3*pi) %% (2*pi) - pi
 }
 
-#' Uses the sign of the pseudorapidity of the tau particle to modify the sign of the pseudorapidity of the leptons and jets, on the basis that the interaction should be invariant to rotations of $\pi$ about the beam (z) axis.
-#' $\eta(\theta) = -\log\tan\frac{\theta}{2}$
-#' $\eta(\pi-\theta) = -\eta(\theta)$
+#' Invert Angle Sign
+#'
+#' Uses the sign of the pseudorapidity of the tau particle to modify the sign of the pseudorapidity of the leptons and jets
+#' on the basis that the interaction should be invariant to rotations of pi about the beam (z) axis.
+#' \deqn{\eta(\theta) = -\log \tan \frac{\theta}{2}}
+#' \deqn{\eta(\pi-\theta) = -\eta(\theta)}
 invert_angle_sign <- function(X) {
     signs <- sign(X$"PRI_tau_eta")
     X$"PRI_tau_eta" <- signs * X$"PRI_tau_eta"
@@ -255,7 +258,7 @@ permute_matrix <- function(X, r=1) {
 #' Run polynomial transform on columns of X (of order b), removing output columns that are highly correlated
 #' @param X matrix of covariates
 #' @param b order of polynomial
-#' @return X augmented matrix of covariates (i.e. X \oplus Xb \ cor(X \oplus Xb > 0.8))
+#' @return X augmented matrix of covariates
 poly_transform <- function(X, b=2){
     for(i in 2:b){
         Xb <- apply(X[, ], 2, function(col) col^b)
@@ -440,10 +443,12 @@ decide <- function(p, thresh = 0.5) {
     return(label)
 }
 
-#' the AMS metric.
-#' note s = sum_{i in B \cup G}w_i and b = sum_{i in B \cup G}w_i;
-#' i.e. the sum of the weights of succesful signal classifications (TP)
-#' and the sum of the weights of incorrect signal classifications (FP) respectively
+#' Calculate AMS metric
+#'
+#' \eqn{s = sum_{i in B \cup G}w_i}
+#' \eqn{b = sum_{i in B \cup G}w_i};
+#' i.e. s is the sum of the weights of successful signal classifications (TP)
+#' and b is the sum of the weights of incorrect signal classifications (FP)
 #' @param s count of true positives
 #' @param b count of false positives
 ams_metric <- function(s, b) {
