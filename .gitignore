@@ -39,7 +39,8 @@ vignettes/*.pdf
 .Renviron
 
 # Data
-#*.csv
+*.csv
+!results_experiments2.csv
 
 ### For Latex too:
 unnamed*
