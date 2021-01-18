@@ -52,3 +52,5 @@ unnamed*
 *.fdb_latexmk
 *.log
 
+# For mac
+.DS_Store
