@@ -5,7 +5,6 @@
 #' @param grad gradient vector
 #' @param H Hessian matrix
 #' @return step to take
-#' @import purrr
 newton_step <- function(grad, H) {
   H_svd <- svd(H)
   H_inv <- H_svd$v %*% diag(1/H_svd$d) %*% t(H_svd$u)
@@ -22,8 +21,6 @@ newton_step <- function(grad, H) {
 #' @param deltax newton step
 #' @param alpha linesearch parameter
 #' @param beta linesearch update parameter
-#'
-#' @import purrr
 backtrack_linesearch <- function(f, gradf, x, deltax, alpha, beta) {
   linesearch_cond <- function(step) {
     f(x + step*deltax) > f(x) + alpha * step * t(gradf(x)) %*% deltax
@@ -71,7 +68,7 @@ interior_point_fit <- function(f, dualf, gradf, Hf, x, m, mu=10, eps=1e-6, eps_f
   return(x)
 }
 
-#' @import purrr
+#' @import Matrix
 l1_logistic_reg <- function(X, y, C) {
   invlink <- logisticf
   dinvlink <- function(x) exp(-x)/(1+exp(-x))^2

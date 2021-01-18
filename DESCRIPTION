@@ -1,16 +1,10 @@
 Package: lhc
 Type: Package
-Title: What the Package Does (Title Case)
+Title: LHC Higgs Boson Classification Challenge
 Version: 0.1.0
-Author: Who wrote it
-Maintainer: The package maintainer <yourself@somewhere.net>
-Description: More about what it does (maybe more than one line)
-    Use four spaces when indenting paragraphs within the Description.
-Imports:
-    purrr,
-    CVXR,
-    Matrix,
-    methods
+Author: Anthony Stephenson and Georgina Mansell
+Maintainer: <ant.stephenson@bristol.ac.uk> and <georgina.mansell@bristol.ac.uk>
+Description: This package defines a variety of functions for classification, specifically for classifying simulated collision events from the  Large Hadron Collider as a Higgs Boson or background event. Created for our first year COMPASS Group Project.
 License: What license is it under?
 Encoding: UTF-8
 LazyData: true

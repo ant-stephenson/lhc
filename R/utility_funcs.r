@@ -73,7 +73,7 @@ scale_dat <- function(X, ref, na.rm=FALSE){
 
 #' Get boolean vector of rows with j=0,1 or 2+
 #' @param nj Vector of number of jets for each point
-#' @parma j jet group
+#' @param j jet group
 idx_jet_cat <- function(nj, j) {
     if (j == 1) {
         nj == 0
@@ -86,7 +86,7 @@ idx_jet_cat <- function(nj, j) {
 
 #' Get boolean index for rows with missing/or not missing (depending on G/j) Higgs mass
 #' @param X matrix of covariates
-#' @parma j jet group
+#' @param j jet group
 #' @param G number of jet groups
 #' @return vector of bools
 idx_higgs_mass <- function(X, j, G) {
