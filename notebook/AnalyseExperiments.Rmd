@@ -26,7 +26,7 @@ exp_data <- read.csv(filepath)
 Remove some columns that are not important for this analysis and average over any duplicated experiments:
 ```{r extract summarise}
 exp_data <- exp_data[, !colnames(exp_data) %in% c("c", "Train", "Validation", "model_type")]
-exp_data %>% group_by(n_rbf, lambda, poly) %>% summarise_all(funs(mean))
+exp_data <- exp_data %>% group_by(n_rbf, lambda, poly) %>% summarise_all(funs(mean)) %>% as.data.frame()
 ```
 
 Implement a convenient plotting function to summarise results.
@@ -104,6 +104,10 @@ output <- exp_data[, c("n_rbf", "lambda", "poly", "auc", "mad.auc.", "ams", "mad
 output <- output[1:5, ]
 print(output)
 
+# make column names latex friendly
+colnames(output) <- sub("(\\w+)\\.(\\w+)\\.?", "\\$\\1_\\{\\2\\}\\$", colnames(output))
+colnames(output) <- sub("n\\_rbf", "\\$n_{rbf}\\$", colnames(output))
+
 # Generate LaTeX table
-latex(output, file="")
+latex(output, file=path_join(c(dirname(getwd()), "doc/results_table.tex")))
 ```
