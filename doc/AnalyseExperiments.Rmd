@@ -19,7 +19,7 @@ source("plot_funcs.R")
 # Analyse Experiments
 
 ```{r import}
-filepath <- "results_experiments2_edit.csv"
+filepath <- "results_experiments2.csv"
 exp_data <- read.csv(filepath)
 # sort by maximum auc and ams results
 # exp_data <- exp_data[order(-exp_data[, "auc"], -exp_data[, "ams"], exp_data[, "lambda"]), ]

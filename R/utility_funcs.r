@@ -69,8 +69,11 @@ scale_dat <- function(X, ref, na.rm=FALSE){
   }
 
   #also add column of 1s called intercept
-  Intercept <- rep(1, nrow(X))
-  X <- cbind(Intercept, X)
+  if (add.intercept) {
+    Intercept <- rep(1, nrow(X))
+    X <- cbind(Intercept, X)
+  }
+  
   return(X)
 }
 

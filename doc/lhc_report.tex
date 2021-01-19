@@ -29,14 +29,12 @@ For the Higgs boson in particular, various decay mechanisms were proposed that c
 
 The goal here is to instead examine the coupling of the Higgs to fermions, to verify that their mass can likewise be explained by the Higgs mechanism. Specifically, here the aim is to analyse the decay $H\rightarrow\tau\tau$; i.e. the decay of the Higgs to a pair of tau-flavour leptons. (The other candidates, electrons and muons fall outside the energy range of the LHC due to their lighter mass).
 
-\section{Theoretical Background}
-\subsection{Physics}
-Not sure how much we actually need to include.
+\section{Data}
+\subsection{Structure}
+We have access to a dataset comprising roughly of primitive covariates, derived covariates, target labels and auxiliary data (weights, subset labels). 
 
-\subsection{Statistics}
-Likewise.
-
-\section{Method}
+\subsection{Class Imbalance}
+Since the events we are looking for in the data are rare, if we were to na\"{\i}vely include rows of signal and background events at the actually observed signal:noise ratio (of approximately 1:1000) we would have a highly imbalanced dataset. As a result, we need to adopt a strategy to address this by either modifying our dataset such that standard classification algorithms can still be of use, or modifying the algorithms to take this into account. Fortunately, the dataset includes a column of weights which account for the imbalance. In particular, the ratio of signal:background rows in the training data is approximately 1:1.9 with associated weights of $O(10^{-3})$ and $O(1)$ for the signal and background rows respectively.
 
 \subsection{Missing Data}
 Early examinations of the dataset revealed the presence of a significant quantity of missing data. Elements of the data matrix recorded as missing were labelled by a value of -999. Before embarking on any model building or even feature engineering we analysed the missing values to try and ascertain whether there was any pattern to their locations. From the definitions of covariates in the dataset it was possible to infer potential causes of missing data. In particular, the estimated mass of the Higgs ($DER\_mass\_MMC$) ``(may be undefined if the topology of the event is too far from the expected topology)", indicates that this feature may be expected to be labelled as missing. Similarly, a set of the features mention a dependence on the number of jets measured in the interaction:
@@ -55,6 +53,9 @@ Early examinations of the dataset revealed the presence of a significant quantit
 \end{description}
 
 So we can see that the missing data is explained by the combination of an unexpected topology and the number of jets observed. This implies that the physical data generating process is different in each of these regimes and that we ought to treat them differently in accordance. As such we chose to attempt to build a separate model for each regime. 
+
+\section{Method}
+
 
 \subsection{Performance Metrics}
 \subsubsection{AMS}
@@ -78,6 +79,7 @@ The AUC (Area Under the [ROC] Curve) provides a compression of the assessment th
 Note that for our problem, the actual ratio of signal:background events is very small, which would cause a problem in interpreting the AUC reliably. In the actual dataset, this problem is mitigated by providing comparable numbers of rows with signal labels as to rows with background labels, each with an associated weight, such that the overall weighted events of signal and background match the actual observed data.
 
 \subsection{Logistic Regression}
+We chose to use a logistic regression as a baseline model to try and solve our classification task. The logic for this was two-fold; we would have a robust, flexible model to compare other modelling approaches to, as well as retaining the capacity to augment it with additional features which could include other models as sub-models within the logistic regression model. 
 
 \subsection{SVM}
 
@@ -88,9 +90,21 @@ In order to improve the performance of our model, we attempted to carry out some
 By considering the basic physics of the beam it is possible to see that there is some redundancy amongst the (primitive) features in the dataset. We can exploit this fact and reduce our initial feature space slightly, by transforming the redundant features into a set of new derived features that contain the same information. 
 More specifically, the redundancy comes from the consideration that the physical phenomena should be invariant to certain symmetries; a rotation about the beam ($z$) axis and reflections in the $xy$-plane.
 
+In particular, we defined the following new features:
+\eq{
+    PRI\_lep\_phi-PRI\_tau\_phi &= (PRI\_lep\_phi - PRI\_tau\_phi) \mod{2\pi} \\
+    PRI\_met\_phi-PRI\_tau\_phi &= (PRI\_met\_phi - PRI\_tau\_phi) \mod{2\pi} \\
+    PRI\_jet\_leading\_phi-PRI\_tau\_phi &= (PRI\_jet\_leading\_phi - PRI\_tau\_phi) \mod{2\pi} \\
+    PRI\_jet\_subleading\_phi-PRI\_tau\_phi &= (PRI\_jet\_subleading\_phi - PRI\_tau\_phi) \mod{2\pi} \\
+    PRI\_tau\_eta &= \rm{sign}(PRI\_tau\_eta)PRI\_tau\_eta \\
+    PRI\_lep\_eta &= \rm{sign}(PRI\_tau\_eta)PRI\_lep\_eta \\
+    PRI\_jet\_leading\_eta &= \rm{sign}(PRI\_tau\_eta)PRI\_jet\_leading\_eta \\
+    PRI\_jet\_subleading\_eta &= \rm{sign}(PRI\_tau\_eta)PRI\_jet\_subleading\_eta
+}
+
 \subsubsection{Higher-Order Effects}
 \paragraph{RBF Centroids}
-To attempt to capture generic higher order interaction-type effects, we implemented a set of RBF centroid features. The implementation works as follows 
+To attempt to capture generic higher order interaction-type effects, we implemented a set of RBF centroid features. The implementation works as follows \newline
 \begin{algorithm}[H]
     1. Generate heuristic estimate of RBF hyperparameter $s$.\\
     2. Select $n_c$ points from $\Xv_{train}$, $\Xv_c = \{\xv^{train}_i, \dots, \xv^{train}_{n_c}\}$.\\
@@ -106,14 +120,11 @@ To attempt to capture generic higher order interaction-type effects, we implemen
     \caption{Augment covariate matrix with RBF centroid features}
 \end{algorithm}
 
-\subsubsection{Transformations}
-\paragraph{Polynomial}
+\subsubsection{Polynomial Transformations}
 
 \subsubsection{Interactions}
 
 \section{Results}
-\subsection{Feature Engineering}
-
 \subsection{Model Selection}
 
 \subsection{Predictions}
