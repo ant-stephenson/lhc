@@ -109,45 +109,63 @@ ROC_curve <- setRefClass("ROC_curve",
   )
 )
 
-
+#' AMS data object class
+#'
+#' This reference class object is used to store the AMS metric of a classification
+#' model at different decision thresholds. AMS is a performance measure which
+#' includes the sample weightings and is defined by the Higgs Boson Kaggle Competition.
+#' A vector of true sample classifications (0 or 1), a vector of estimated probabilities
+#' from a model, and a vector of scaled sample weights are needed to initialise.
+#'
+#' @name AMS_data
+#' @import methods
+#' @export AMS_data
+#' @exportClass AMS_data
+#'
+#' @field y A vector of true sample classifications (0 or 1),
+#' @field prob A vector of the samples estimated probabilities from a model
+#' @field weights A vector of scaled sample weights.
+#' @field thresholds A vector of 30 decision thresholds.
+#' @field ams A vector of the AMS metric at each threshold.
 AMS_data <- setRefClass("AMS_data",
-                        fields = c(
-                          y = "numeric",
-                          prob = "numeric",
-                          weights = "numeric",
-                          thresholds = "numeric",
-                          ams = "numeric"))
-AMS_data$methods(
-  #to initialise provide a list of true labels, probabilities P(y="s"), and scaled weights
-  initialize = function(y, prob, weights){
-    .self$y <- as.numeric(y)
-    .self$prob <- as.numeric(prob)
-    .self$weights <- as.numeric(weights)
-    .self$thresholds <- seq(0, 1, length.out = 30)
-  },
+  fields = c(
+    y = "numeric",
+    prob = "numeric",
+    weights = "numeric",
+    thresholds = "numeric",
+    ams = "numeric"
+  ),
+  methods = list(
+    initialize = function(y, prob, weights){
+      "Provide true sample lables, estimated probabilities, and sample weights. A vector of descision thresholds is initalised."
+      .self$y <- as.numeric(y)
+      .self$prob <- as.numeric(prob)
+      .self$weights <- as.numeric(weights)
+      .self$thresholds <- seq(0, 1, length.out = 30)
+    },
+    calc_ams = function(){
+      "Calculate the AMS at each thresholds."
+      n <- length(thresholds)
+      AMS <- rep(NA, n)
+      for(i in 1:n){
+        #use each threshold to make a classification
+        y_pred <- prob >= thresholds[i]
+        #with these classifications calculate AMS
+        AMS[i] <- ams_metric(y, y_pred, weights)
+      }
+      .self$ams <- AMS
+    },
+    plot_ams = function(){
+      "Plot AMS against threshold."
+      #find the maximum ams threshold
+      .self$calc_ams()
+      max_ams <- max(ams)
+      max_thresh <- thresholds[which.max(ams)]
 
-  calc_ams = function(){
-    #for each threshold, calculate b, s, and the AMS
-    n <- length(thresholds)
-    AMS <- rep(NA, n)
-
-    for(i in 1:n){
-      #use the threshold to make a classification
-      y_pred <- prob >= thresholds[i]
-      AMS[i] <- ams_metric(y, y_pred, weights)
+      #plot the ams at different thresholds, with a line at the best
+      plot(thresholds, ams, type="l", col="steelblue", main="AMS at different decision thresholds")
+      abline(v=max_thresh, lty=2)
+      legend("topright", legend=paste0("Max AMS at p=", round(max_thresh, 2)), lty=2)
     }
-    .self$ams <- AMS
-  },
-
-  plot_ams = function(){
-    #find the maximum ams threshold
-    .self$calc_ams()
-    max_ams <- max(ams)
-    max_thresh <- thresholds[which.max(ams)]
-
-    #plot the ams at different thresholds, with a line at the best
-    plot(thresholds, ams, type="l", col="steelblue", main="AMS at different decision thresholds")
-    abline(v=max_thresh, lty=2)
-    legend("topright", legend=paste0("Max AMS at p=", round(max_thresh, 2)), lty=2)
-  }
+  )
 )
