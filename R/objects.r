@@ -1,27 +1,39 @@
-#defining an object class for a logistic regression model
+#' Logistic model object class
+#'
+#' A reference class object to hold a logistic regression model.
+#' Can be used to initialize and train a model using the logistic_reg function,
+#' then use the model to predict the classes of new samples.
+#' Sample classes must be 0 or 1.
+#' Predict returns the probability that each new sample is class 1,
+#' and a decision threshold should be subsequently applied.
+#'
+#' @name logistic_model
+#' @import methods
+#' @export logistic_model
+#' @exportClass logistic_model
+#'
+#' @field X An nxd matrix with samples as rows and features as columns
+#' @field y A length-n vector of 0s and 1s indicating true sample classes
+#' @field coeffs A length-d vector of model coefficients
 logistic_model <- setRefClass("logistic_model",
                               fields = c(
                                 X = "matrix",
                                 y = "numeric",
-                                coeffs = "numeric"))
-
-#to initialise provide a design matrix and output label
-#then uses the logistic regression implementation to find the coefficients
-#uses the coefficients to find p(y=1) (probability of signal)
-
-logistic_model$methods(
-  #to initialise provide a design matrix X and output label y
-  #it will then use our logistic reg function to fit the model/find the coefficients
-  initialize = function(X, y){
-    .self$X <- as.matrix(X)
-    .self$y <- as.numeric(y)
-    .self$coeffs <- as.numeric(logistic_reg(as.matrix(X), as.numeric(y)))
-  },
-
-  #also defines a method to use this model to predict class of new points
-  predict = function(X_test){
-    return(logistic(as.matrix(X_test) %*% coeffs))
-  }
+                                coeffs = "numeric"
+                              ),
+                              methods = list(
+                                initialize = function(X, y){
+                                  "Provide X and y and the coeffs field will be calculated using logistic_reg"
+                                  .self$X <- as.matrix(X)
+                                  .self$y <- as.numeric(y)
+                                  .self$coeffs <- as.numeric(logistic_reg(as.matrix(X), as.numeric(y)))
+                                },
+                                predict = function(X_test){
+                                  "Provide a matrix of new samples and a vector of P(y=1) is returned"
+                                  prob <- logisticf(as.matrix(X_test) %*% coeffs)
+                                  return(as.numeric(prob))
+                                }
+                              )
 )
 
 ROC_data <- setRefClass("ROC_data",
