@@ -103,6 +103,8 @@ In particular, we defined the following new features:
 }
 
 \subsubsection{Higher-Order Effects}
+From the exploratory analysis of the data, in particular the visualisation of the principal components, it appears that the classes are not linearly separable in the base feature space. As a result, we hope that perhaps by including non-linear transformations of our features, such as polynomials and RBF centroids, we might be able to model some of the non-linear elements of the relationship between the classes and the features.
+
 \paragraph{RBF Centroids}
 To attempt to capture generic higher order interaction-type effects, we implemented a set of RBF centroid features. The implementation works as follows \newline
 \begin{algorithm}[H]
@@ -121,8 +123,10 @@ To attempt to capture generic higher order interaction-type effects, we implemen
 \end{algorithm}
 
 \subsubsection{Polynomial Transformations}
+In order to try and model non-linear relationships between our features and the target labels, we decided to try and include polynomial transformations of the features. 
 
 \subsubsection{Interactions}
+Although we considered implementing interactions to further augment our covariates, we chose not to pursue this avenue in the end. The reason for this is that the number of combinations of pairwise interactions for our feature set is .... Including all of these is likely to significantly increase the risk of overfitting our model, and without a principled method to either choose to only include a subset of interactions, or a way to remove most of them, it seems preferable to skip this option. Additionally, the large increase in feature space would also lead to a sizeable increase in computation time, as the Hessian dimensions would increase by ... and hence the time by approximately ... (as our algorithm uses Newton's method which scales as $O(d^3)$ for a $d$-dimensional feature space).
 
 \section{Results}
 \subsection{Model Selection}
