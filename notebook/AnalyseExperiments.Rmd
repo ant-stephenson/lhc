@@ -12,14 +12,14 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r import}
 library(ggplot2)
 library(dplyr)
-
-source("plot_funcs.R")
+library(fs)
+library(lhc)
 ```
 
 # Analyse Experiments
 
 ```{r import}
-filepath <- "results_experiments2.csv"
+filepath <- path_join(c(dirname(getwd()), "/output/results_experiments2.csv"))
 exp_data <- read.csv(filepath)
 # sort by maximum auc and ams results
 # exp_data <- exp_data[order(-exp_data[, "auc"], -exp_data[, "ams"], exp_data[, "lambda"]), ]
