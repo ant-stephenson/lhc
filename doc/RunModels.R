@@ -6,19 +6,7 @@ library(tidyr)
 library(Matrix)
 library(fs)
 library(purrr)
-
-script_dir <- dirname(sys.frame(1)$ofile)
-# if (!path_has_parent(script_dir, "R")) {
-#   script_dir <- path_join(c(script_dir, "R"))
-#   } else {
-#     script_dir <- substr(script_dir, 1, nchar(script_dir)-2)
-# }
-setwd(script_dir)
-
-source("utility_funcs.r")
-source("plot_funcs.r")
-source("lr_funcs.r")
-source("lr1_funcs.r")
+library(lhc)
 
 ## ----load data---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # divide data into training kaggle set, and retain hold-out (before further cross-validation partitioning)
@@ -40,33 +28,14 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
   e_id <- data$e_id[train_idx]
 
 
-  ## ----validation set----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  # public leaderboard set
-  val_idx <- get_subset_idx(data$kaggle_s, val_label)
-  Xv <- data$X[val_idx, ]
-  yv<- data$y[val_idx]
-  wv <- data$kaggle_w[val_idx]
-  njv <- data$nj[val_idx]
-
-
   ## ----add features------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   # modify features
   X <- reduce_features(X)
   X <- invert_angle_sign(X)
-  Xv <- reduce_features(Xv)
-  Xv <- invert_angle_sign(Xv)
 
   if (poly_order > 1) {
     X <- poly_transform(X, poly_order)
-    Xv <- poly_transform(Xv, poly_order)
   }
-
-  # ensure X and Xv have the same columns
-  cols2keep <- intersect(colnames(X), colnames(Xv))
-  Xv <- Xv[, cols2keep]
-  X <- X[, cols2keep]
-
-  Xv <- scale_dat(Xv, X, na.rm=TRUE)
 
 
   ## ----init params-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -151,97 +120,21 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
   ## ----avg ams and plot roc, error=TRUE----------------------------------------------------------------------------------------------------------------------------------------------------
   ams <- sapply(ams_obj, function(x) x$calc_ams())
 
-  ## ----full model--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  # loop over folds
-  #create lists to hold the k models and k roc curves
-  full_models <- vector("list", G)
-  full_rocs <- vector("list", G)
-  rbf_idx <- matrix(, nrow=G, ncol=n_rbf)
-  # check warnings?
-  for (mj in 1:G) {
-    # loop over sets of jet number {0, 1, 2+} and mH presence/absence
-    j <- jet_cats[mj]
-    fit_row_idx <- idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
-
-    if (n_rbf > 0) {
-      # add r RBF centroid features, using the same reference centroids in training and testing sets
-      rbf_centroids <- get_rbf_centroids(X[fit_row_idx, ], n_rbf)
-      Xi <- rbf_centroids$"xi"
-      # record which rows to use for OOS in public set (or any other OOS)
-      rbf_idx[mj, ] <- rbf_centroids$"idx"
-      Xtrain <- add_rbf_features(X[fit_row_idx, ], s, n_rbf, Xi=Xi)
-    } else {
-      Xtrain <- X[fit_row_idx, ]
-    }
-
-    col_idx <- get_valid_cols(colnames(Xtrain), features_to_rm, mj)
-
-    Xtrain <- as.matrix(Xtrain[, col_idx])
-    Xtrain <- scale_dat(Xtrain, Xtrain)
-
-    model_idx <- get_model_idx(mj, 1, 1)
-
-    #fit a logistic regression model to the CV training data
-    full_models[[model_idx]] <- model_init(X=Xtrain, y=y[fit_row_idx])
-  }
-
-
-  ## ----validation--------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  amsv_obj <- vector("list", G)
-
-  sum_wv <- sum(wv)
-  for (mj in 1:G) {
-    j <- jet_cats[mj]
-    test_row_idx <- idx_jet_cat(njv, j) & idx_higgs_mass(Xv, mj, G)
-
-    if (n_rbf > 0) {
-      # add r RBF centroid features, using the same reference centroids in training and testing sets
-      Xi <- X[rbf_idx[mj, ], ]
-      Xtest <- add_rbf_features(Xv[test_row_idx, ], s, n_rbf, Xi=Xi)
-    } else {
-      Xtest <- Xv[test_row_idx, ]
-    }
-
-    col_idx <- get_valid_cols(colnames(Xtest), features_to_rm, mj)
-
-    Xtest <- as.matrix(Xtest[, col_idx])
-
-    model_idx <- get_model_idx(mj, 1, 1)
-
-    #use it to predict the classifications of the test data
-    p_hat <- full_models[[model_idx]]$predict(Xtest)
-
-    #create an ROC curve object
-    full_rocs[[model_idx]] <- ROC_curve$new(yv[test_row_idx], p_hat)
-
-    amsv_obj[[model_idx]] <- AMS_data$new(yv[test_row_idx], p_hat, wv[test_row_idx], sum_w=sum_wv)
-  }
-
-
-  ## ----plot validation auc-----------------------------------------------------------------------------------------------------------------------------------------------------------------
-  . <- sapply(full_rocs, function(x) x$calc_auc())
-  aucv <- sapply(full_rocs, function(x) round(x$auc, 3))
-
-  ## ----plot validation ams thresholds------------------------------------------------------------------------------------------------------------------------------------------------------
-  amsv <- sapply(amsv_obj, function(x) x$calc_ams())
-
   ## ----print-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  sprintf("Results for lambda=%.2g, G=%i, n_rbf=%i, K=%i on training set ('%s') and validation set ('%s')", lambda, G, n_rbf, K, train_label, val_label)
+  sprintf("Results for lambda=%.2g, G=%i, n_rbf=%i, K=%i on training set ('%s')", lambda, G, n_rbf, K, train_label)
   sprintf("CV OOS AUC = %.2f ± %.1f", mean(auc), mad(auc))
   sprintf("CV OOS AMS = %.2f ± %.1f", mean(ams), mad(ams))
-  sprintf("Validation set AUC = %.2f ± %.1f", mean(aucv), mad(aucv))
-  sprintf("Validation set AMS = %.2f ± %.1f", mean(amsv), mad(amsv))
 
   ## ----record to file----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  filename <- sprintf("results_%s.csv", results_label)
+  filename <- sprintf(path_join(c(dirname(getwd()), "output/results_%s.csv")), results_label)
   model_type <- class(models[[1]])[1]
   if (!file.exists(filename)){
-    result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "model_type"=model_type, "n_rbf"=n_rbf, "lambda"=lambda, "c"=C, "poly"=poly_order, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams), "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
+    result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "model_type"=model_type, "n_rbf"=n_rbf, "lambda"=lambda, "c"=C, "poly"=poly_order, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams))#, "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
     write.table(as.data.frame(result), file = filename, append = TRUE, sep = ",",
                 eol = "\n", na = "NA", dec = ".", row.names = FALSE,
                 col.names = TRUE, qmethod = c("escape", "double"))
   } else {
-    result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "model_type"=model_type, "n_rbf"=n_rbf, "lambda"=lambda, "c" = C, "poly"=poly_order, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams), "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
+    result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "model_type"=model_type, "n_rbf"=n_rbf, "lambda"=lambda, "c" = C, "poly"=poly_order, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams))#, "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
     write.table(as.data.frame(result), file = filename, append = TRUE, sep = ",",
                 eol = "\n", na = "NA", dec = ".", row.names = FALSE,
                 col.names = FALSE, qmethod = c("escape", "double"))
@@ -258,18 +151,18 @@ val_label <- c("b")
 K <- 10
 G <- 3
 n_rbf <- 0:5
-lambda <- logspace(1e-4, 100, 5)
+lambda <- logspace(1e-2, 10, 10)
 C <- 1#logspace(1, 100, 5)
 thresholds <- c(0.6, 0.4, 0.6)
-poly_order = 3
+poly_order = 1
 # L1 logistic regression (using CVXR)
 # rm(logistic)
 # model_init <- partial(logistic_l1_model$new, C=C)
-results_label <- "experiments2"
+results_label <- "experiments4"
 
 library(foreach)
 library(doParallel)
-registerDoParallel(3)
+registerDoParallel(4)
 
 n_grid_2 <- length(lambda)
 
