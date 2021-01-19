@@ -12,7 +12,7 @@
 
 \author{Mansell, Georgie \and Stephenson, Ant}
 \date{\today}
-\title{Something something Higgs boson}
+\title{Identifying fermionic decay signals of the Higgs boson with classification algorithms}
 
 \begin{document}
 \maketitle
@@ -27,9 +27,12 @@ Once CERN's Large Hadron Collider (LHC) emerged on the scene, with the necessary
 
 For the Higgs boson in particular, various decay mechanisms were proposed that could be used to demonstrate its existence by comparing the rate of the by-products of those decays vs background mechanisms (that do not involve the Higgs). In 2013, when the Higgs was experimentally discovered by CERN, the evidence was provided by \emph{bosonic} decays from the Higgs to the following pairs, $\gamma\gamma$, $WW$ and $ZZ$. 
 
-The goal here is to instead examine the coupling of the Higgs to fermions, to verify that their mass can likewise be explained by the Higgs mechanism. Specifically, here the aim is to analyse the decay $H\rightarrow\tau\tau$; i.e. the decay of the Higgs to a pair of tau-flavour leptons. (The other candidates, electrons and muons fall outside the energy range of the LHC due to their lighter mass).
+The goal here is to instead examine the coupling of the Higgs to fermions, to verify that their mass can likewise be explained by the Higgs mechanism. Specifically, the aim is to analyse the decay $H\rightarrow\tau\tau$; i.e. the decay of the Higgs to a pair of tau-flavour leptons. (The other candidates, electrons and muons fall outside the energy range of the LHC due to their lighter mass).
+
+In this document we look at the problem of improving the statistical significance of the experimental results collected by implementing classification models to identify signal events. We organise the report by providing a brief overview of the dataset and some of its key properties in \ref{data}. After this we introduce our proposed methods for studying the problem and generating classification predictions in \ref{method}. We go onto analyse the results we obtained from running experiments on the data with our models in order to try and pick the best performing model from our subset of trials, being careful to fairly assess this from two key metrics (\ref{results}). Finally we summarise our key findings and overall score on a hold-out test set of data in \ref{conclusion}.
 
 \section{Data}
+\label{data}
 \subsection{Structure}
 We have access to a dataset comprising roughly of primitive covariates, derived covariates, target labels and auxiliary data (weights, subset labels). 
 
@@ -55,7 +58,7 @@ Early examinations of the dataset revealed the presence of a significant quantit
 So we can see that the missing data is explained by the combination of an unexpected topology and the number of jets observed. This implies that the physical data generating process is different in each of these regimes and that we ought to treat them differently in accordance. As such we chose to attempt to build a separate model for each regime. 
 
 \section{Method}
-
+\label{method}
 
 \subsection{Performance Metrics}
 \subsubsection{AMS}
@@ -129,12 +132,16 @@ In order to try and model non-linear relationships between our features and the 
 Although we considered implementing interactions to further augment our covariates, we chose not to pursue this avenue in the end. The reason for this is that the number of combinations of pairwise interactions for our feature set is .... Including all of these is likely to significantly increase the risk of overfitting our model, and without a principled method to either choose to only include a subset of interactions, or a way to remove most of them, it seems preferable to skip this option. Additionally, the large increase in feature space would also lead to a sizeable increase in computation time, as the Hessian dimensions would increase by ... and hence the time by approximately ... (as our algorithm uses Newton's method which scales as $O(d^3)$ for a $d$-dimensional feature space).
 
 \section{Results}
+\label{results}
+
 \subsection{Model Selection}
+To make decisions regarding the relative performance of our candidate models we used a 10-fold cross-validation procedure to train and test each of the permutations of our features and models. By running experiments that carried out the procedure, we were able to generate summary outputs that concisely captured a representation of performance. More precisely, we appended rows of information to a $.csv$ file for each experiment that could then be subsequently analysed to compare performance. Note that each experiment was run with an unspecified random seed, so we expect some degree of random variation between experiments even with no change to parameters, simply due to the change in data partitioning. We can use this scale of variance to aid identification of significant performance improvements. 10 fold cross-validation was picked as a compromise between speed of computation and in-sample vs out-of-sample variance; computation time scales as $O(KNd)$ for $K$ folds, $N$ data points and $d$ features, whilst we expect the variance of our (averaged over folds) performance estimate to scale as $\frac{1}{K}$. In effect, by picking (for example) 10 folds rather than 5, we are trading an increase in computation time of a factor of two for a decrease in estimator variance of the same factor. 
 
 \subsection{Predictions}
 To actually calculate AMS scores, we need to convert out probabilistic outputs into binary labels which means we need to pick a decision rule, i.e. a threshold over which we assign a label 1 (or $s$) vs 0 (or $b$).
 
 \section{Conclusion}
+\label{conclusion}
 
 \pagebreak 
 
