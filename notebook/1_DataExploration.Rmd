@@ -1,0 +1,692 @@
+---
+title: "LHC Project"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Documenting approach
+So far just exploring data / missing data / logistic regression / bit of OOP
+
+## Load packages
+```{r}
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(Matrix)
+library(RColorBrewer)
+
+source("utility_funcs.r")
+```
+
+## Load and visualise data
+```{r}
+#load the raw data
+raw_data <- data.table::fread("../../atlas-higgs-challenge-2014-v2.csv")
+
+#Split data into 2 dataframes: info and variables, both with event id as row names to check they stay matched
+info <- as.data.frame(raw_data[, c("KaggleSet", "KaggleWeight", "Weight", "Label")]) 
+info$Y <- as.numeric(info$Label == "s") #recodes background to 0 and signal to 1
+rownames(info) <- raw_data$EventId
+
+X <- as.matrix(raw_data[, -c("EventId", "KaggleSet", "KaggleWeight", "Weight", "Label")])
+rownames(X) <- raw_data$EventId
+
+#Extract a validation set and keep the kaggle dataset as our main data (including CV)
+X_validation <- X[raw_data$KaggleSet!="t",]
+info_validation <- info[raw_data$KaggleSet!="t",]
+
+X <- X[raw_data$KaggleSet=="t",]
+info <- info[raw_data$KaggleSet=="t",]
+
+
+#to get an idea of the variables, viewing each distribution
+plot_data <- raw_data %>% 
+    filter(KaggleSet == "t") %>%
+  select(-KaggleSet, -KaggleWeight, -Weight) %>%
+  pivot_longer(cols=c(-"EventId", -"Label"), values_to = "Value", names_to="Variable")
+
+#30 variables is too many for a single plot so viewing 15 
+view_variables <- function(dat, vars){
+  dat %>%
+    filter(Variable %in% vars) %>%
+      ggplot(aes(Value, colour=Label)) +
+      geom_density() +
+      theme_minimal() +
+      theme(legend.position = "none") +
+      facet_wrap(vars(Variable), scales="free")
+}
+view_variables(plot_data, vars=colnames(X)[1:15])
+view_variables(plot_data, vars=colnames(X)[16:30])
+#there are no features that are that different between the classes
+#the peaks at -999 indicate missing values / not applicable
+#PRI_jet_num is the only categorical variable
+```
+
+## Define logistic regression and roc objects
+```{r}
+#defining an object class for a logistic regression model
+logistic_model <- setRefClass("logistic_model",
+                                 fields = c(
+                                   X = "matrix",
+                                   y = "numeric",
+                                   coeffs = "numeric"))
+
+#to initialise provide a design matrix and output label
+#then uses the logistic regression implementation to find the coefficients
+#uses the coefficients to find p(y=1) (probability of signal)
+
+logistic_model$methods(
+  #to initialise provide a design matrix X and output label y
+  #it will then use our logistic reg function to fit the model/find the coefficients
+  initialize = function(X, y){
+    .self$X <- as.matrix(X)
+    .self$y <- as.numeric(y)
+    .self$coeffs <- as.numeric(logistic_reg(as.matrix(X), as.numeric(y)))
+  },
+  
+  #also defines a method to use this model to predict class of new points
+  predict = function(X_test){
+    return(logistic(as.matrix(X_test) %*% coeffs))
+  }
+)
+
+ROC_data <- setRefClass("ROC_data",
+                                 fields = c(
+                                   thresholds = "numeric",
+                                   FP = "numeric",
+                                   TP = "numeric",
+                                   auc = "numeric"))
+ROC_data$methods(
+  initialize = function(y, prob){
+    #we want to find a set of thresholds that vary FP and FN rate from 0 to 1
+    #find n evenly spaced values from the list of probabilities, including the 0 and 1
+    prob_ordered <- prob[order(prob)]
+    n <- 30
+    indices <- 1 + 0:(n-3) * (length(y)-1)/(n-3)
+    thresh <- c(0, prob_ordered[round(indices)], 1)
+  
+    #for each threshold, calculate the FR, FN, s and b
+    FPr <- rep(NA, n)
+    TPr <- rep(NA, n)
+    for(i in 1:n){
+        FPr[i] <- sum(prob > thresh[i] & y == 0) / sum(y == 0)
+        TPr[i] <- sum(prob > thresh[i] & y == 1) / sum(y == 1)
+    }
+    
+    .self$FP <- FPr
+    .self$TP <- TPr
+    .self$auc <- 0
+  },
+  
+  calc_auc = function(){
+    if(.self$auc == F){
+      #using the trapezoidal rule to integrate the roc curve to find the auc
+      #since we only have points not a curve I think this is approach is sufficent
+      #note that the points go from right to left on the curve (so FP[i] > FP[i+1])
+      AUC <- 0 
+      for(i in 1:(length(FP)-1)){
+        h <- FP[i] - FP[i+1]
+        AUC <- AUC + (h/2 * (TP[i] + TP[i+1]))
+      }
+      .self$auc <- AUC
+      return(AUC)
+    }
+  },
+  
+  #define a method to plot the roc
+  plot_curve = function(){
+    .self$calc_auc()
+    plot(0:1, 0:1, type="l", lty=2, xlab="False Positive Rate", 
+           ylab="True Positive Rate", main=paste("AUC:", round(.self$auc,2)))
+    lines(.self$FP, .self$TP, col="steelblue")
+    legend("bottomright", legend=c("Model", "Chance"), col=c("steelblue", 1), lty=1:2)
+  }
+)
+
+#taking just 1000 rows of the complete data to test the objects
+X_train <- X[1:1000,]
+y_train <- info[1:1000, "Y"]
+
+X_test <- X[1001:2000,]
+y_test <- info[1001:2000, "Y"]
+
+#create the logistic regression model
+model <- logistic_model$new(X_train, y_train)
+
+#use it to predict the classifications of the test data
+prob <- model$predict(X_test)
+
+#now use the true classes to create an ROC curve object
+roc <- ROC_data$new(y_test, prob)
+roc$calc_auc()
+roc$plot_curve()
+
+#can we add the number of iterations to the model object rather than print?
+#would need the method within the object class
+```
+
+## AMS
+While an ROC curve is a useful way to measure the performance of a classifier, in this simulated dataset not all points are equally important. The simulated dataset contains a roughly even split of signal and background events, but in reality P(s) << P(b). Therefore the simulated events are provided with an importance weighting, and the Kaggle challenge provides a specific objective function.
+
+'We provide a training set with signal/background labels and with weights, a test set (without labels and weights) and a formal objective representing an approximation of the median significance (AMS) of the counting test.'
+'The objective is a function of the weights of selected events. We expect that significant improvements are possible [...] by incorporating the objective function or a surrogate into the classifier design.'
+
+```{r}
+ams_metric <- function(y, y_pred, weights){
+  #calculate s and b
+  #s is the sum of the weights of the correctly predicted positives (true positives)
+  #b is the sum of the weights of the incorrectly predicted positives (false positives)
+  s <- sum(weights[y_pred==1 & y==1])
+  b <- sum(weights[y_pred==1 & y!=1])
+  
+  #calculate ams using kaggle formula
+  breg <- 10
+  AMS <- sqrt(2*((s+b+breg)*log(1+s/(b+breg))-s))
+  return(AMS)
+}
+
+AMS_data <- setRefClass("AMS_data",
+                                 fields = c(
+                                   y = "numeric",
+                                   prob = "numeric",
+                                   weights = "numeric",
+                                   thresholds = "numeric",
+                                   ams = "numeric"))
+AMS_data$methods(
+  #to initialise provide a list of true labels, probabilities P(y="s"), and scaled weights
+  initialize = function(y, prob, weights){
+    .self$y <- as.numeric(y)
+    .self$prob <- as.numeric(prob)
+    .self$weights <- as.numeric(weights)
+    .self$thresholds <- seq(0, 1, length.out = 30)
+  },
+  
+  calc_ams = function(){
+    #for each threshold, calculate b, s, and the AMS
+    n <- length(thresholds)
+    AMS <- rep(NA, n)
+    
+    for(i in 1:n){
+      #use the threshold to make a classification
+      y_pred <- prob >= thresholds[i]
+      AMS[i] <- ams_metric(y, y_pred, weights)
+    }
+    .self$ams <- AMS
+  },
+  
+  plot_ams = function(){
+    #find the maximum ams threshold
+    .self$calc_ams()
+    max_ams <- max(ams)
+    max_thresh <- thresholds[which.max(ams)]
+    
+    #plot the ams at different thresholds, with a line at the best
+    plot(thresholds, ams, type="l", col="steelblue", main="AMS at different decision thresholds")
+    abline(v=max_thresh, lty=2)
+    legend("topright", legend=paste0("Max AMS at p=", round(max_thresh, 2)), lty=2)
+  }
+)
+
+#get scaled weights
+w_test <- info[1001:2000, "Weight"]
+w_test <- w_test * (sum(info$Weight)/sum(w_test))
+
+#now use the true classes to look at model performance
+ams <- AMS_data$new(y_test, prob, w_test)
+ams$plot_ams()
+
+#so we can see that we can use AMS to select an optimal threshold
+#could we also try to plot a weighted roc?
+```
+
+## Logisitc Regression
+Explain the IRWLS logistic regression function
+We want to show a simple logistic regression, and then we can show how later steps improve performance from this baseline.
+
+Options we'll then consider:
+- Use -999s or NAs for missing data
+- Split by jet number means no missing data remaining
+- Rescaling the data (mean 0 sd 1)
+- Feature reduction from kaggle discussion
+
+```{r}
+# get an index for CV groups
+k <- 5
+kI <- partition_data(n=nrow(X), k=k, random=T)
+
+#create lists to hold the k models and k roc curves
+models <- vector("list", k)
+rocs <- vector("list", k)
+amss <- vector("list", k)
+
+for(i in 1:k){
+  X_train <- X[kI != i,]
+  y_train <- info[kI != i, "Y"]
+  
+  X_test <- X[kI == i,]
+  y_test <- info[kI == i, "Y"]
+  
+  w_test <- info[kI == i, "Weight"]
+  w_test <- w_test * (sum(info$Weight)/sum(w_test))
+  
+  #fit a logistic regression model to the CV training data
+  models[[i]] <- logistic_model$new(X=X_train, y=y_train)
+  
+  #use it to predict the classifications of the test data
+  prob <- models[[i]]$predict(X_test)
+  
+  #store roc_data and ams_data 
+  rocs[[i]] <- ROC_data$new(y_test, prob)
+  amss[[i]] <- AMS_data$new(y_test, prob, w_test)
+}
+
+
+#define a function to plot multiple roc objects on the same axes
+plot_rocs <- function(rocs, title="ROC curves"){
+    n <- length(rocs)
+    colours <- brewer.pal(n+1, 'Blues')[2:(n+1)] #gets some nice blues but skips the lightest one
+    plot(0:1, 0:1, type="l", lty=2, xlab="False Positive Rate", 
+           ylab="True Positive Rate", main=title)
+    legend("bottomright", legend=c("Chance", "Logistic Regression"), 
+           col=c("black", colours[n]), lty=2:1)
+    for(i in 1:n){
+      lines(rocs[[i]]$FP, rocs[[i]]$TP, col=colours[i])
+    }
+}
+
+#find average auc
+average_auc <- mean(sapply(rocs, function(x) x$calc_auc()))
+plot_rocs(rocs, title=paste("All training data, 5-fold CV, Average AUC", round(average_auc, 3)))
+
+#define a function to plot multiple ams objects on the same axes
+plot_amss <- function(amss, title="AMS data"){
+  lapply(amss, function(x) x$calc_ams())
+  y_max <- max(sapply(amss, function(x) max(x$ams)))
+  n <- length(amss)
+  colours <- brewer.pal(n+1, 'Blues')[2:(n+1)] #gets some nice blues but skips the lightest one
+  ams <- amss[[1]]
+  plot(ams$thresholds, ams$ams, type="l", col=colours[1], main=title,
+       xlab="Decision Threshold", ylab="AMS", ylim=c(0, y_max))   
+  
+  for(i in 2:n){
+    ams <- amss[[i]]
+    lines(ams$thresholds, ams$ams, type="l", col=colours[i])
+  }  
+}
+
+plot_amss(amss, title="All training data, 5-fold CV, AMS of different thresholds")
+```
+On the left of the AMS graph, we have all points classified at signal. On the right we have all points classified as background, and so the true positive rate and false postive rate are 0, and AMS = 0. 
+
+The best decision threshold for this model is P(y="s") = 0.4.
+
+## Explain missing data pattern
+Since the data is simulated, it is not the case that missing values are unknown or unrecorded. Instead they represent the field being undefined. For example when the number of jets is 0 (PRI_jet_num = 0), other fields relating to the jets are not applicable. 
+
+`Variables are indicated as “may be undefined” when it can happen that they are meaning-
+less or cannot be computed; in this case, their value is − 999.0, which is outside the normal
+range of all variables.`
+
+We can look for this structure in the data by looking for patterns of missing data. 
+```{r}
+#creating a copy of X just coding if the value is missing or non missing
+missing <- matrix(as.numeric(X == -999), ncol=ncol(X))
+colnames(missing) <- colnames(X)
+
+#considering just the columns that contain missing data
+missing <- missing[,colSums(missing) != 0]
+
+#using dplyr to group the different types of row
+missing_combinations <- as_tibble(missing) %>% 
+  group_by_all() %>%
+  count() %>%
+  ungroup()
+
+#we have 6 types of sample, with different patterns of missing data
+#not sure how useful the difference between types1-3 and types4-6 are, just first col missing or not missing and gives 2 quite small groups
+#but is a nice systematic way of identifying the groups?
+missing_combinations
+
+#splitting X into 6 groups so we can see how these groups are characterised 
+group <- rep(NA, nrow(X))
+missing_combinations <- data.matrix(missing_combinations[, colnames(missing_combinations) != "n"])
+for(i in 1:nrow(X)){
+  pattern <- missing[i,]
+  g <- apply(missing_combinations, 1, function(row) identical(row, pattern)) 
+  group[i] <- which(g)
+}
+
+#if we train a model on each group, for each group we can exclude the columns which are missing, and not need to worry about -999s
+#looking for columns which are now constants (sd of column is 0)
+features_to_rm <- vector("list", 6)
+for(i in 1:6) {
+    features_to_rm[[i]] <- colnames(X)[apply(X[group==i,], 2, sd) == 0]
+}
+
+#are any columns constant within groups that are not just because they are constantly missing?
+for(i in 1:6){
+  missing_cols <- colnames(missing_combinations)[missing_combinations[i,] == 1]
+  constant_cols <- features_to_rm[[i]]
+  print(constant_cols[!constant_cols %in% missing_cols])
+}
+#this indicates the pattern of missing data relates to the jet number columns
+```
+
+This method to split the data based on jet number makes physical sense because..
+'There's a clear structure to the missing values. Most of them are related to the properties of hadronic jets in the detector. If an event contains no jets at all, all the jet-related features are missing. If an event contains exactly one jet, the leading jet features are present, but the subleading jet features are absent.'
+
+```{r}
+#out of interest show the first 3 principle components do not separate the classes
+pca <- prcomp(t(X[1:10000,]))
+par(mfrow=c(1,2))
+for(i in 2:3){
+  colour <- as.factor(info[1:10000, "Label"])
+  plot(pca$rotation[,1], pca$rotation[,i], col=colour, 
+             pch=20, xlab=paste0("PCA", 1), ylab=paste0("PCA", i))
+  legend("bottomright", legend=levels(colour), col=1:2, pch=20, cex=0.8)
+}
+
+#the clusters are actually related to the missing data, 
+#makes sense that variables with these extreme ranges will dominate the PCA  
+for(i in 2:3){
+  colour <- as.factor(X[1:10000, "PRI_jet_num"])
+  plot(pca$rotation[,1], pca$rotation[,i], col=colour, 
+             pch=20, xlab=paste0("PCA", 1), ylab=paste0("PCA", i))
+  legend("bottomright", legend=paste(levels(colour), "jets"), col=1:4, pch=20, cex=0.8)
+}
+for(i in 2:3){
+  colour <- as.factor(X[1:10000, "DER_mass_MMC"]==-999)
+  plot(pca$rotation[,1], pca$rotation[,i], col=colour,
+             pch=20, xlab=paste0("PCA", 1), ylab=paste0("PCA", i))
+  legend("bottomright", legend=c("Not missing", "Missing mass MMC"), col=1:2, pch=20, cex=0.8)
+}
+```
+
+## For one of the groups, do k fold CV 
+```{r}
+# take data from one of the groups as an example 
+g <- 3
+X_group <- X[group==g, !colnames(X) %in% features_to_rm[[g]]]
+info_group <- info[group==g,]
+
+# check the samples are still matched 
+identical(rownames(X_group), rownames(info_group))
+
+# get an index for CV groups
+k <- 5
+kI <- partition_data(n=nrow(X_group), k=k, random=T)
+
+#create lists to hold the k models and k roc curves
+models <- vector("list", k)
+rocs <- vector("list", k)
+amss <- vector("list", k)
+
+for(i in 1:k){
+  X_train <- X_group[kI != i,]
+  y_train <- info_group[kI != i, "Y"] 
+  
+  X_test <- X_group[kI == i,]
+  y_test <- info_group[kI == i, "Y"] 
+  
+  w_test <- info_group[kI == i, "Weight"]
+  w_test <- w_test * (sum(info$Weight)/sum(w_test))
+  
+  #fit a logistic regression model to the CV training data
+  models[[i]] <- logistic_model$new(X=X_train, y=y_train)
+  
+  #use it to predict the classifications of the test data
+  prob <- models[[i]]$predict(X_test)
+  
+  #store roc_data and ams_data 
+  rocs[[i]] <- ROC_data$new(y_test, prob)
+  amss[[i]] <- AMS_data$new(y_test, prob, w_test)
+}
+
+average_auc <- mean(sapply(rocs, function(x) x$calc_auc()))
+plot_rocs(rocs, title=paste("Data type 3, 5-fold CV, Average AUC", round(average_auc, 3)))
+plot_amss(amss, title="Data type 3, 5-fold CV, AMS of different thresholds")
+
+#out of interest look at the variable distributions in this group
+plot_data %>%
+  filter(EventId %in% rownames(X_group),
+         Variable %in% colnames(X_group)) %>%
+  view_variables(vars=colnames(X_group))
+
+#and show first 3 PCA components
+pca <- prcomp(t(X_train))
+par(mfrow=c(1,2))
+for(i in 2:3){
+  colour <- as.factor(y_train)
+  plot(pca$rotation[,1], pca$rotation[,i], col=colour, 
+             pch=20, xlab=paste0("PCA", 1), ylab=paste0("PCA", i))
+  legend("bottomleft", legend=levels(colour), col=1:2, pch=20, cex=0.8)
+}
+#not sure whats going on here with the little cluster
+#but we can see that the data is still not easily separable
+```
+
+By selecting a subset of samples we can remove undefined values and improve performance. AUC improved by about 0.2 and peak AMS by about 0.5.
+
+## How does rescaling the data affect performance?
+```{r}
+#define a function to scale features of a matrix with reference to another matrix
+#useful because you can normalise X_train, and apply the same transformation to X_test
+#not designed for data with -999s! 
+scale_dat <- function(X, ref){
+  if(ncol(X) != ncol(ref)) stop('Two inputs must have the same number of columns')
+
+  #calculate column means and sds of ref, ignoring NAs
+  mu <- colMeans(ref)
+  sd <- apply(ref, 2, sd)
+  
+  #transform columns of X
+  for(i in 1:ncol(ref)){
+    X[,i] <- (X[,i] - mu[i]) / sd[i] #is there a smarter way to do this not in a loop?
+  }
+
+  #also add column of 1s called intercept
+  Intercept <- rep(1, nrow(X))
+  X <- cbind(Intercept, X)
+  return(X)
+}
+
+## Run the 5 fold CV again on scaled data
+models <- vector("list", k)
+rocs <- vector("list", k)
+amss <- vector("list", k)
+
+for(i in 1:k){
+  X_train <- X_group[kI != i,]
+  y_train <- info_group[kI != i, "Y"] 
+  
+  X_test <- X_group[kI == i,]
+  y_test <- info_group[kI == i, "Y"] 
+  
+  w_test <- info_group[kI == i, "Weight"]
+  w_test <- w_test * (sum(info$Weight)/sum(w_test))
+  
+  #scale the training data, and scale the test data with the same transformation
+  X_train_scaled <- scale_dat(X_train, X_train)
+  X_test_scaled <- scale_dat(X_test, X_train)
+  
+  #fit a logistic regression model to the CV training data
+  models[[i]] <- logistic_model$new(X=X_train_scaled, y=y_train)
+  
+  #use it to predict the classifications of the test data
+  prob <- models[[i]]$predict(X_test_scaled)
+  
+  #store roc_data and ams_data 
+  rocs[[i]] <- ROC_data$new(y_test, prob)
+  amss[[i]] <- AMS_data$new(y_test, prob, w_test)
+}
+
+average_auc <- mean(sapply(rocs, function(x) x$calc_auc()))
+plot_rocs(rocs, title=paste("Data type 3, 5-fold CV, Average AUC", round(average_auc, 3)))
+plot_amss(amss, title="Data type 3, 5-fold CV, AMS of different thresholds")
+```
+Standardising the data improves performance but only by a very small amount.
+
+## Repeat for each of the data subgroups 
+```{r}
+par(mfrow=c(2, 3))
+for(g in 1:6){
+  X_group <- X[group==g, !colnames(X) %in% features_to_rm[[g]]]
+  info_group <- info[group==g,]
+  
+  # get an index for CV groups
+  kI <- partition_data(n=nrow(X_group), k=k, random=T)
+  amss <- vector("list", k)
+  
+  for(i in 1:k){
+    X_train <- X_group[kI != i,]
+    y_train <- info_group[kI != i, "Y"] 
+    
+    X_test <- X_group[kI == i,]
+    y_test <- info_group[kI == i, "Y"] 
+    
+    w_test <- info_group[kI == i, "Weight"]
+    w_test <- w_test * (sum(info$Weight)/sum(w_test))
+    
+    #scale the training data, and scale the test data with the same transformation
+    X_train_scaled <- scale_dat(X_train, X_train)
+    X_test_scaled <- scale_dat(X_test, X_train)
+    
+    #fit a logistic regression model to the CV training data
+    model <- logistic_model$new(X=X_train_scaled, y=y_train)
+    
+    #use it to predict the classifications of the test data
+    prob <- model$predict(X_test_scaled)
+    
+    #for each group plot the ams
+    amss[[i]] <- AMS_data$new(y_test, prob, w_test)
+  }
+  #for each group plot the ams
+  plot_amss(amss, title=paste("Data type", g))
+}
+```
+
+We have reasonable prediction accuracy for the first 3 data types, but pretty poor accuracy for the later 3 types.
+Note that the first 3 types have ~70,000 samples, but types 4, 5, and 6 have around 4000, 7000, and 26000 respectively.
+The smaller sample sizes of these 3 groups will contribute to their poorer performance and higher AMS variance.
+On the Kaggle discussion boards people discussed how AMS is quite variable and so it is best to take the average AMS over cross validation.
+
+Using logistic regression on the last three data types is not effective!
+Interestingly we can see that the optimal decision threshold for the different data classes is different.
+This may be due to the proportion of signal events to background events in each group?
+
+# Test grouping by jet number only
+Ignoring that the DER_mass_MMC can be missing or not missing
+Keeping it coded as -999 and not scaling the data
+
+```{r}
+jet_group <- X[, "PRI_jet_num"] + 1
+jet_group[jet_group==4] <- 3
+G <- 3
+jet_features_to_rm <- vector("list", G)
+for(g in 1:G) {
+    jet_features_to_rm[[g]] <- colnames(X)[apply(X[jet_group==g,], 2, sd) == 0]
+}
+
+test <- function(){
+par(mfrow=c(2,2))
+for(g in 1:G){
+  X_group <- X[jet_group==g, !colnames(X) %in% jet_features_to_rm[[g]]]
+  info_group <- info[jet_group==g,]
+  
+  # get an index for CV groups
+  kI <- partition_data(n=nrow(X_group), k=k, random=T)
+  amss <- vector("list", k)
+  
+  for(i in 1:k){
+    X_train <- X_group[kI != i,]
+    y_train <- info_group[kI != i, "Y"] 
+    
+    X_test <- X_group[kI == i,]
+    y_test <- info_group[kI == i, "Y"] 
+    
+    w_test <- info_group[kI == i, "Weight"]
+    w_test <- w_test * (sum(info$Weight)/sum(w_test))
+    
+    #fit a logistic regression model to the CV training data
+    model <- logistic_model$new(X=X_train, y=y_train)
+    
+    #use it to predict the classifications of the test data
+    prob <- model$predict(X_test)
+    
+    #for each group plot the ams
+    amss[[i]] <- AMS_data$new(y_test, prob, w_test)
+  }
+  #for each group plot the ams
+  plot_amss(amss, title=paste("Jet num", g-1))
+}
+}
+system.time(test())
+```
+We can see that the mass being missing or not doesn't really affect the performance of groups jet=0 or 1. Overall the AMS scores are higher, however there is quite high variance in the performance of then models when jet=3 or 4.
+
+## Try simple polynomial transform 
+works for b=2, but only on some of the groups!
+```{r, eval=F}
+#define a function which takes each column and adds columns variables to powers 1:b
+#doesnt currently add interaction terms
+poly_transform <- function(X, b=2){
+  for(i in 2:b){
+    Xb <- apply(X, 2, function(col) col^b)
+    colnames(Xb) <- paste0(colnames(Xb), "^", b)
+    X <- cbind(X, Xb)
+  }
+  # #remove highly correlated variables
+  # cors <- cor(X)
+  # cors[!lower.tri(cors)] <- 0
+  # X <- X[, !apply(cors,2,function(x) any(x > 0.80))]
+  return(X)
+}
+
+par(mfrow=c(2, 2))
+for(g in 2:3){
+  X_group <- X[jet_group==g, !colnames(X) %in% jet_features_to_rm[[g]]]
+  info_group <- info[jet_group==g,]
+  X_group <- poly_transform(X_group, 2)
+  
+  # get an index for CV groups
+  kI <- partition_data(n=nrow(X_group), k=k, random=T)
+  amss <- vector("list", k)
+  
+  for(i in 1:k){
+    X_train <- X_group[kI != i,]
+    y_train <- info_group[kI != i, "Y"] 
+    
+    X_test <- X_group[kI == i,]
+    y_test <- info_group[kI == i, "Y"] 
+    
+    w_test <- info_group[kI == i, "Weight"]
+    w_test <- w_test * (sum(info$Weight)/sum(w_test))
+    
+    #scale the training data, and scale the test data with the same transformation
+    X_train_scaled <- scale_dat(X_train, X_train)
+    X_test_scaled <- scale_dat(X_test, X_train)
+    
+    #fit a logistic regression model to the CV training data
+    model <- logistic_model$new(X=X_train_scaled, y=y_train)
+    
+    #use it to predict the classifications of the test data
+    prob <- model$predict(X_test_scaled)
+    
+    #for each group plot the ams
+    amss[[i]] <- AMS_data$new(y_test, prob, w_test)
+  }
+  #for each group plot the ams
+  plot_amss(amss, title=paste("Jet num", g-1, "polynomial b=2"))
+}
+```
+
+When jet_num=0, the logistic regression model does not converge (values of H expload to infinity). This is probably due to an badly conditioned design matrix where adding the new features has introduced multicollinearilty. However, removing correlated columns does not fix it.
+
+Including the squared columns does increase performance of jet=1 and jet>2 groups.
+
+
+## Other Feature Engineering
+
