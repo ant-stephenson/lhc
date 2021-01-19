@@ -269,8 +269,10 @@ poly_transform <- function(X, b=2){
     X <- X[, !apply(cors,2,function(x) any(abs(x) > 0.80, na.rm=TRUE))]
 
     #remove columns with particularly large values might overflow
-    max_val <- apply(X, 2, function(x) log10(max(x, na.rm=TRUE)))
-    X <- X[, names(max_val[max_val < 6])]
+    if (b >2) {
+      max_val <- apply(X, 2, function(x) log10(max(x, na.rm=TRUE)))
+      X <- X[, names(max_val[max_val < 8])]
+    }
     return(X)
 }
 
