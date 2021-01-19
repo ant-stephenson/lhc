@@ -109,5 +109,5 @@ colnames(output) <- sub("(\\w+)\\.(\\w+)\\.?", "\\$\\1_\\{\\2\\}\\$", colnames(o
 colnames(output) <- sub("n\\_rbf", "\\$n_{rbf}\\$", colnames(output))
 
 # Generate LaTeX table
-latex(output, file=path_join(c(dirname(getwd()), "doc/results_table.tex")))
+latex(output, file=path_join(c(dirname(getwd()), "doc/results_table.tex")), caption="Results table of the top 5 experiments")
 ```
