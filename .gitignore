@@ -40,7 +40,7 @@ vignettes/*.pdf
 
 # Data
 *.csv
-!results_experiments2.csv
+!results_experiments4.csv
 
 ### For Latex too:
 unnamed*
