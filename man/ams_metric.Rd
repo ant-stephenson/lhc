@@ -2,10 +2,7 @@
 % Please edit documentation in R/utility_funcs.r
 \name{ams_metric}
 \alias{ams_metric}
-\title{the AMS metric.
-note s = sum_{i in B \cup G}w_i and b = sum_{i in B \cup G}w_i;
-i.e. the sum of the weights of succesful signal classifications (TP)
-and the sum of the weights of incorrect signal classifications (FP) respectively}
+\title{Calculate AMS metric}
 \usage{
 ams_metric(s, b)
 }
@@ -15,8 +12,8 @@ ams_metric(s, b)
 \item{b}{count of false positives}
 }
 \description{
-the AMS metric.
-note s = sum_{i in B \cup G}w_i and b = sum_{i in B \cup G}w_i;
-i.e. the sum of the weights of succesful signal classifications (TP)
-and the sum of the weights of incorrect signal classifications (FP) respectively
+\eqn{s = sum_{i in B \cup G}w_i}
+\eqn{b = sum_{i in B \cup G}w_i};
+i.e. s is the sum of the weights of successful signal classifications (TP)
+and b is the sum of the weights of incorrect signal classifications (FP)
 }

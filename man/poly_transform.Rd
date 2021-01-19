@@ -12,7 +12,7 @@ poly_transform(X, b = 2)
 \item{b}{order of polynomial}
 }
 \value{
-X augmented matrix of covariates (i.e. X \oplus Xb \ cor(X \oplus Xb > 0.8))
+X augmented matrix of covariates
 }
 \description{
 Run polynomial transform on columns of X (of order b), removing output columns that are highly correlated

@@ -2,14 +2,13 @@
 % Please edit documentation in R/utility_funcs.r
 \name{invert_angle_sign}
 \alias{invert_angle_sign}
-\title{Uses the sign of the pseudorapidity of the tau particle to modify the sign of the pseudorapidity of the leptons and jets, on the basis that the interaction should be invariant to rotations of $\pi$ about the beam (z) axis.
-$\eta(\theta) = -\log\tan\frac{\theta}{2}$
-$\eta(\pi-\theta) = -\eta(\theta)$}
+\title{Invert Angle Sign}
 \usage{
 invert_angle_sign(X)
 }
 \description{
-Uses the sign of the pseudorapidity of the tau particle to modify the sign of the pseudorapidity of the leptons and jets, on the basis that the interaction should be invariant to rotations of $\pi$ about the beam (z) axis.
-$\eta(\theta) = -\log\tan\frac{\theta}{2}$
-$\eta(\pi-\theta) = -\eta(\theta)$
+Uses the sign of the pseudorapidity of the tau particle to modify the sign of the pseudorapidity of the leptons and jets
+on the basis that the interaction should be invariant to rotations of pi about the beam (z) axis.
+\deqn{\eta(\theta) = -\log \tan \frac{\theta}{2}}
+\deqn{\eta(\pi-\theta) = -\eta(\theta)}
 }

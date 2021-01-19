@@ -3,6 +3,7 @@
 #' @param labels reference labels to compare to
 #' e.g. x <- c("t", "b", "t", "v", "b"); labels <- c("t", "b")
 #' get_subset_idx(x, labels) = T, T, T, F, T
+#' @export
 get_subset_idx <- function(x, labels) {
   !is.na(match(x, labels))
 }
@@ -13,6 +14,7 @@ get_subset_idx <- function(x, labels) {
 #'
 #' @param filepath str location of csv
 #' @return named list of X, y, w, kaggle_w, kaggle_s, e_id, nj
+#' @export
 import_data <- function(filepath="atlas-higgs-challenge-2014-v2.csv") {
     # Import data - put all this in a function to create a pipeline
     lhc_data <- read.csv(filepath)
@@ -52,7 +54,8 @@ import_data <- function(filepath="atlas-higgs-challenge-2014-v2.csv") {
 #' @param X matrix of covariates
 #' @param ref matrix of covariates from which to calculate mu and sd
 #' @param na.rm flag to be compatible with colMeans and sd (to ignore NA)
-#' @return X augmented matrix of covariates, standardized \oplus intercept column
+#' @return augmented matrix of covariates, standardized and an intercept column
+#' @export
 scale_dat <- function(X, ref, na.rm=FALSE){
   if(ncol(X) != ncol(ref)) stop('Two inputs must have the same number of columns')
 
@@ -74,6 +77,7 @@ scale_dat <- function(X, ref, na.rm=FALSE){
 #' Get boolean vector of rows with j=0,1 or 2+
 #' @param nj Vector of number of jets for each point
 #' @param j jet group
+#' @export
 idx_jet_cat <- function(nj, j) {
     if (j == 1) {
         nj == 0
@@ -89,6 +93,7 @@ idx_jet_cat <- function(nj, j) {
 #' @param j jet group
 #' @param G number of jet groups
 #' @return vector of bools
+#' @export
 idx_higgs_mass <- function(X, j, G) {
     # for j>3 take rows with Higgs missing (and drop Higgs)
   if (G == 6) {
@@ -107,6 +112,7 @@ idx_higgs_mass <- function(X, j, G) {
 #' @param kI fold indices (test label)
 #' @param nj Vector of number of jets for each point
 #' @return nested list of column names
+#' @export
 set_features_to_rm <- function(X, G, kI, nj) {
   jet_cats <- rep(c(1:3), G/3)
   K <- max(kI)
@@ -132,6 +138,7 @@ set_features_to_rm <- function(X, G, kI, nj) {
 #'
 #' @param X matrix of covariates
 #' @return X augmented matrix of covariates
+#' @export
 # based on
 # https://www.kaggle.com/c/higgs-boson/discussion/9576
 reduce_features <- function(X) {
@@ -146,9 +153,13 @@ reduce_features <- function(X) {
     # new_phi=(rot_phi+3*pi) %% (2*pi) - pi
 }
 
-#' Uses the sign of the pseudorapidity of the tau particle to modify the sign of the pseudorapidity of the leptons and jets, on the basis that the interaction should be invariant to rotations of $\pi$ about the beam (z) axis.
-#' $\eta(\theta) = -\log\tan\frac{\theta}{2}$
-#' $\eta(\pi-\theta) = -\eta(\theta)$
+#' Invert Angle Sign
+#'
+#' Uses the sign of the pseudorapidity of the tau particle to modify the sign of the pseudorapidity of the leptons and jets
+#' on the basis that the interaction should be invariant to rotations of pi about the beam (z) axis.
+#' \deqn{\eta(\theta) = -\log \tan \frac{\theta}{2}}
+#' \deqn{\eta(\pi-\theta) = -\eta(\theta)}
+#' @export
 invert_angle_sign <- function(X) {
     signs <- sign(X$"PRI_tau_eta")
     X$"PRI_tau_eta" <- signs * X$"PRI_tau_eta"
@@ -165,6 +176,7 @@ invert_angle_sign <- function(X) {
 #' @param n_centroids number of RBF features to add
 #' @param Xi matrix of reference points to calculate RBF w.r.t
 #' @return X augmented covariate matrix
+#' @export
 add_rbf_features <- function(X, s, n_centroids, Xi=NULL) {
     set.seed(1234)
     if (is.null(Xi)) {
@@ -184,6 +196,7 @@ add_rbf_features <- function(X, s, n_centroids, Xi=NULL) {
 #' @param n_centroids number of RBF centroids
 #' @param idx [Optional] location of RBF centroid reference points
 #' @return list of Xi (centroid points) and idx (location of them)
+#' @export
 get_rbf_centroids <- function(X, n_centroids, idx=NULL) {
     n <- nrow(X)
     d <- ncol(X)
@@ -203,6 +216,7 @@ get_rbf_centroids <- function(X, n_centroids, idx=NULL) {
 #' @param s median pairwise distance of points in X
 #' @param idx [Optional] location of reference centroid
 #' @param xi [Optional] reference centroid
+#' @export
 rbf_feature <- function(X, s, idx=NULL, xi=NULL) {
     n <- nrow(X)
     if (is.null(idx)) {
@@ -222,6 +236,7 @@ rbf_feature <- function(X, s, idx=NULL, xi=NULL) {
 #'
 #' @param X covariate matrix
 #' @return s median pairwise distance
+#' @export
 avg_median_pairwise_distance <- function(X) {
     n <- nrow(X)
     X_perm <- X
@@ -238,6 +253,7 @@ avg_median_pairwise_distance <- function(X) {
 #' @param X0 covariate matrix
 #' @param X1 covariate matrix
 #' @return vector of distances
+#' @export
 pairwise_distance <- function(X0, X1) {
     rowSums((X0 - X1)^2, na.rm=TRUE)
 }
@@ -246,6 +262,7 @@ pairwise_distance <- function(X0, X1) {
 #'
 #' @param X covariate matrix
 #' @param r number of rows to permute (default=1)
+#' @export
 permute_matrix <- function(X, r=1) {
     n <- nrow(X)
     X_perm <- rbind(X[(n-r+1):n,], X[1:(n-r),])
@@ -255,18 +272,19 @@ permute_matrix <- function(X, r=1) {
 #' Run polynomial transform on columns of X (of order b), removing output columns that are highly correlated
 #' @param X matrix of covariates
 #' @param b order of polynomial
-#' @return X augmented matrix of covariates (i.e. X \oplus Xb \ cor(X \oplus Xb > 0.8))
+#' @return X augmented matrix of covariates
+#' @export
 poly_transform <- function(X, b=2){
   orig_cols <- colnames(X)
     for(i in 2:b){
-        Xb <- apply(X[, orig_cols], 2, function(col) col^b)
-        colnames(Xb) <- paste0(colnames(Xb), "^", b)
+        Xb <- apply(X[, orig_cols], 2, function(col) col^i)
+        colnames(Xb) <- paste0(colnames(Xb), "^", i)
         X <- cbind(X, Xb)
     }
-    #remove highly correlated variables
-    cors <- cor(X)
-    cors[!lower.tri(cors)] <- 0
-    X <- X[, !apply(cors,2,function(x) any(abs(x) > 0.80, na.rm=TRUE))]
+    # #remove highly correlated variables - doesnt work
+    # cors <- cor(X)
+    # cors[!lower.tri(cors)] <- 0
+    # X <- X[, !apply(cors,2,function(x) any(abs(x) > 0.80, na.rm=TRUE))]
 
     #remove columns with particularly large values might overflow
     max_val <- apply(X, 2, function(x) log10(max(x, na.rm=TRUE)))
@@ -277,6 +295,7 @@ poly_transform <- function(X, b=2){
 #' find colnames for columns that are constant (e.g. all 1, -999, NA etc)
 #' @param X matrix of covariates
 #' @return list of column names
+#' @export
 get_const_features <- function(X) {
     col_sd <- apply(X, 2, sd)
     cols <- col_sd == 0 | is.na(col_sd)
@@ -290,6 +309,7 @@ get_const_features <- function(X) {
 #' @param random flag to choose whether to randomly select
 #' @return ind vector of integers denoting the OOS fold each row belongs to
 #' Returns vector of indices denoting the OOS index, i_e. for rows with I_i=1, those are OOS for i=1
+#' @export
 partition_data <- function(n, k, random=FALSE){
     #minimum size of the group
     size <- floor(n/k)
@@ -310,6 +330,7 @@ partition_data <- function(n, k, random=FALSE){
 #' @param j this jet group
 #' @param k this fold
 #' @param K number of folds
+#' @export
 get_model_idx <- function(j, k, K) {
     K*(j-1) + k
 }
@@ -319,6 +340,7 @@ get_model_idx <- function(j, k, K) {
 #' @param idx model index
 #' @param K number of folds
 #' @return numeric pair of j and k
+#' @export
 inv_model_idx <- function(idx, K) {
     # assumes indexing loops internally over j and externally over k
     j <-  ceiling(idx/K)
@@ -331,6 +353,7 @@ inv_model_idx <- function(idx, K) {
 #' @param features_to_rm list of feature names we want to remove
 #' @param j jet group
 #' @return index of columns to retain
+#' @export
 get_valid_cols <- function(header, features_to_rm, j) {
     match(setdiff(header, features_to_rm[[j]]), header)
 }
@@ -338,6 +361,7 @@ get_valid_cols <- function(header, features_to_rm, j) {
 #' Calculate logistic function
 #' @param x float
 #' @return logisticf(x)
+#' @export
 logisticf <- function(x) {
     1/(1 + exp(-x))
 }
@@ -345,6 +369,7 @@ logisticf <- function(x) {
 #' Calculate logit function
 #' @param p float in [0,1]
 #' @return logit(p)
+#' @export
 logit <- function(p) {
     log(p/(1-p))
 }
@@ -354,6 +379,7 @@ logit <- function(p) {
 #' @param x_j point in R^d
 #' @param b order of polynomial
 #' @return scalar of (1+x^Tx)^b
+#' @export
 poly_kernel <- function(x_i, x_j, b) {
     return((t(x_i) %*% x_j + 1)^b)
 }
@@ -362,6 +388,7 @@ poly_kernel <- function(x_i, x_j, b) {
 #' @param x_i point in R^d
 #' @param x_j point in R^d
 #' @param b order of polynomial
+#' @export
 trig_kernel <- function(x_i, x_j, b=0) {
     output <- 0
     for (k in 0:b) {
@@ -373,7 +400,8 @@ trig_kernel <- function(x_i, x_j, b=0) {
 #' Define linear kernel
 #' @param x_i point in R^d
 #' @param x_j point in R^d
-lin_kernel <- function(x_i, x_j, ...) {
+#' @export
+lin_kernel <- function(x_i, x_j) {
     return(t(x_i) %*% x_j)
 }
 
@@ -381,6 +409,7 @@ lin_kernel <- function(x_i, x_j, ...) {
 #' @param x_i point in R^d
 #' @param x_j point in R^d
 #' @param sigma bandwidth hyperparameter
+#' @export
 rbf_kernel <- function(x_i, x_j, sigma) {
     return(exp(-t(x_i - x_j) %*% (x_i - x_j) / (2 * sigma^2)))
 }
@@ -388,6 +417,7 @@ rbf_kernel <- function(x_i, x_j, sigma) {
 #' Function factory to partially call kernel function to return the kernel function with it's hyperparameters set
 #' @param ckernel kernel function with args (x_i,x_j,hyper)
 #' @return function with args (x_i,x_j)
+#' @export
 tuned_kernel <- function(ckernel, ...) {
     function(x_i, x_j){
         ckernel(x_i, x_j, ...)
@@ -398,6 +428,7 @@ tuned_kernel <- function(ckernel, ...) {
 #' @param X covariate matrix (nxd)
 #' @param ckernel kernel function with args (x_i, x_j)
 #' @return K kernel matrix (nxn)
+#' @export
 calc_K <- function(X, ckernel, ...){
     ckernel <- tuned_kernel(ckernel, ...)
     n <- nrow(X)
@@ -410,47 +441,25 @@ calc_K <- function(X, ckernel, ...){
     return(K)
 }
 
-#' Calculate predictions for test points by computing the kernel matrix over the training points and the kernel vector(/matrix) over test and training points
-#'
-#' @param X_test matrix of covariate test points
-#' @param X_train matrix of covariate training points
-#' @param y response vector
-#' @param L ?
-#' @param ckernel kernel function k(x_i,x_j)
-svm_predict <- function(X_test, X_train, y, L, ckernel=lin_kernel) {
-    X_test <- as.matrix(X_test)
-    X_train <- as.matrix(X_train)
-    n_test <- nrow(X_test)
-    n_train <- nrow(X_train)
-    k <- matrix(NA, nrow=n_train, ncol=n_test)
-    K <- matrix(NA, nrow=n_train, ncol=n_train)
-    for (i in 1:n_train){
-        for (m in 1:n_test){
-            k[i,m] <- ckernel(X_test[m,], X_train[i,])
-        }
-        for (j in 1:n_train){
-            K[i,j] <- ckernel(X_train[i,], X_train[j,])
-        }
-    }
-    f <- t(k) %*% solve(K + L * diag(n_train)) %*% y
-    return(f)
-}
-
 #' Thresholding function
 #'
 #' @param p vector of probabilities
 #' @param thresh threshold over which we assign output of 1
+#' @export
 decide <- function(p, thresh = 0.5) {
     label <- as.numeric(p > thresh)
     return(label)
 }
 
-#' the AMS metric.
-#' note s = sum_{i in B \cup G}w_i and b = sum_{i in B \cup G}w_i;
-#' i.e. the sum of the weights of succesful signal classifications (TP)
-#' and the sum of the weights of incorrect signal classifications (FP) respectively
+#' Calculate AMS metric
+#'
+#' \eqn{s = sum_{i in B \cup G}w_i}
+#' \eqn{b = sum_{i in B \cup G}w_i};
+#' i.e. s is the sum of the weights of successful signal classifications (TP)
+#' and b is the sum of the weights of incorrect signal classifications (FP)
 #' @param s count of true positives
 #' @param b count of false positives
+#' @export
 ams_metric <- function(s, b) {
     br <- 10
     sqrt(2 * ((s + b + br) * log(1 + s/(b + br)) - s))
