@@ -16,7 +16,7 @@ scale_dat(X, ref, na.rm = FALSE)
 \item{na.rm}{flag to be compatible with colMeans and sd (to ignore NA)}
 }
 \value{
-X augmented matrix of covariates, standardized \oplus intercept column
+augmented matrix of covariates, standardized and an intercept column
 }
 \description{
 define a function to scale features of a matrix with reference to another matrix

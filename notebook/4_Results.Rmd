@@ -1,0 +1,79 @@
+---
+title: "Analyse Experiments"
+author: "Anthony Stephenson"
+date: "1/18/2021"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r import}
+library(ggplot2)
+library(dplyr)
+
+source("plot_funcs.R")
+```
+
+# Analyse Experiments
+
+```{r import}
+filepath <- "results_experiments2_edit.csv"
+exp_data <- read.csv(filepath)
+# sort by maximum auc and ams results
+# exp_data <- exp_data[order(-exp_data[, "auc"], -exp_data[, "ams"], exp_data[, "lambda"]), ]
+
+```
+
+```{r plot}
+# define function to plot against our metric
+plot_metric <- function(data, xlabel, ylabel, loop_label=NULL, filt0=TRUE, ...) {
+  if (!is.null(loop_label)) {
+    init_idx <- min(data[, loop_label])
+    ntrials <- max(data[, loop_label])-(-1 + init_idx)
+    filt_func <- function(x) data[, loop_label] == x & filt0
+  } else{
+    ntrials <- 1
+    init_idx <- 0
+    filt_func <- function(x) filt0
+  }
+  
+  colours <- generate_colours(ntrials)
+  
+  ylim <- c(min(data[filt0, ylabel]), max(data[filt0, ylabel]))
+  
+  filt <- filt_func(init_idx)
+  plot(data[filt, xlabel], data[filt, ylabel], col=colours[1], type="lin", xlab=xlabel, ylab=ylabel, main=sprintf("%s vs %s for different %s", ylabel, xlabel, loop_label), ylim=ylim, ...)
+  for (i in 1:ntrials) {
+    nr <- i + init_idx
+    filt <- filt_func(nr)
+    lines(data[filt, xlabel], data[filt, ylabel], col=colours[nr])
+  }
+  legend("bottomleft", legend=c(init_idx:(ntrials+(init_idx-1))), fill=colours)
+}
+
+# order by our x variable
+exp_data <- exp_data[order(exp_data[, "lambda"]), ]
+
+filt0 <- exp_data[, "poly"]==1
+plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
+plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
+
+# weird oscillations must be due to a change I made to the poly function that removes cols with values > 1e6 (now changed to 1e7). Didn't expect it to make such a difference. Non-deterministic between random subsets of data. A very coarse solutioon but I didn't expect it to matter. Might need to improve
+filt0 <- exp_data[, "poly"]==2
+plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
+plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
+
+filt0 <- exp_data[, "poly"]==3
+plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
+plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
+
+filt0 <- exp_data[, "n_rbf"]==0
+plot_metric(exp_data, "lambda", "auc", "poly", filt0, log="x")
+plot_metric(exp_data, "lambda", "ams", "poly", filt0, log="x")
+
+exp_data <- exp_data[order(exp_data[, "poly"]), ]
+filt0 <- exp_data[, "n_rbf"]==0
+plot_metric(exp_data, "poly", "auc", filt0=filt0)
+```

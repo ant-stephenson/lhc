@@ -4,7 +4,7 @@
 \alias{lin_kernel}
 \title{Define linear kernel}
 \usage{
-lin_kernel(x_i, x_j, ...)
+lin_kernel(x_i, x_j)
 }
 \arguments{
 \item{x_i}{point in R^d}
