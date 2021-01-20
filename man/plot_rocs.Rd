@@ -7,6 +7,10 @@
 plot_rocs(rocs, title = "ROC curves")
 }
 \arguments{
+\item{rocs}{list of roc objects}
+
+\item{title}{str title to give plot}
+
 \item{FP}{false positive rate (vector)}
 
 \item{TP}{true positive rate (vector)}
@@ -16,7 +20,8 @@ plot_rocs(rocs, title = "ROC curves")
 \item{p_hat}{model output probabilities
 plots of parameter values by fold to compare and check consistency of models}
 
-\item{b}{matrix of coefficients (dxK)}
+\item{b}{matrix of coefficients (dxK)
+define a function to plot multiple roc objects on the same axes}
 }
 \value{
 list of false positive and true positive rates at different thresholds

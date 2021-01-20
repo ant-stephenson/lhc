@@ -6,7 +6,7 @@
 useful because you can normalise X_train, and apply the same transformation to X_test
 not designed for data with -999s!}
 \usage{
-scale_dat(X, ref, na.rm = FALSE)
+scale_dat(X, ref, na.rm = FALSE, add.intercept = TRUE)
 }
 \arguments{
 \item{X}{matrix of covariates}

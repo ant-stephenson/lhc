@@ -19,12 +19,14 @@ A decision threshold should be subsequently.
 \item{\code{y}}{A length-n vector of 0s and 1s indicating true sample classes.}
 
 \item{\code{coeffs}}{A length-d vector of model coefficients.}
+
+\item{\code{lambda}}{regularization parameter}
 }}
 
 \section{Methods}{
 
 \describe{
-\item{\code{initialize(X, y)}}{Provide X and y and the coeffs field will be calculated using logistic_reg}
+\item{\code{initialize(X, y, lambda = 1e-06)}}{Provide X and y and the coeffs field will be calculated using logistic_reg}
 
 \item{\code{predict(X_test)}}{Provide a matrix of new samples and a vector of P(y=1) is returned}
 }}
