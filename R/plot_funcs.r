@@ -95,7 +95,10 @@ generate_colours <- function(ncolours) {
 # }
 
 
-#define a function to plot multiple roc objects on the same axes
+#' define a function to plot multiple roc objects on the same axes
+#' @param rocs list of roc objects
+#' @param title str title to give plot
+#' @export
 plot_rocs <- function(rocs, title="ROC curves"){
   n <- length(rocs)
   colours <- brewer.pal(n+1, 'Blues')[2:(n+1)] #gets some nice blues but skips the lightest one
@@ -108,7 +111,10 @@ plot_rocs <- function(rocs, title="ROC curves"){
   }
 }
 
-#define a function to plot multiple ams objects on the same axes
+#' define a function to plot multiple ams objects on the same axes
+#' @param amss list of ams objects
+#' @param title str title to give plot
+#' @export
 plot_amss <- function(amss, title="AMS data"){
   lapply(amss, function(x) x$calc_ams())
   y_max <- max(sapply(amss, function(x) max(x$ams)))
