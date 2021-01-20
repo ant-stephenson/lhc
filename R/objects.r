@@ -129,6 +129,8 @@ ROC_curve <- setRefClass("ROC_curve",
 #' @field weights A vector of scaled sample weights.
 #' @field thresholds A vector of 30 decision thresholds.
 #' @field ams A vector of the AMS metric at each threshold.
+#' @field max_ams maximum ams
+#' @field max_thresh threshold of maximum ams
 AMS_data <- setRefClass("AMS_data",
   fields = c(
     y = "numeric",
@@ -137,7 +139,7 @@ AMS_data <- setRefClass("AMS_data",
     thresholds = "numeric",
     ams = "numeric",
     max_ams = "numeric",
-    max_thresh = "numeric",
+    max_thresh = "numeric"
   ),
   methods = list(
     initialize = function(y, prob, weights){
