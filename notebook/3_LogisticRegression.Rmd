@@ -17,13 +17,14 @@ library(tidyr)
 library(Matrix)
 library(fs)
 library(purrr)
+library(RColorBrewer)
 library(lhc)
 ```
 Kaggle sets:  ”t”:training, ”b”:public leaderboard, ”v”:private leaderboard, ”u”:unused.
 Set script parameters:
 ```{r initialise script params}
 # Regularisation (L2) parameter [global]
-lambda <- 1e-4
+lambda <- 3e-3
 
 # constraint parameter for L1 Logistic regression [global]
 C <- 1
@@ -31,7 +32,7 @@ C <- 1
 # number of jet/Higgs mass groups to build different models for
 G <- 3
 
-poly_order <- 3
+poly_order <- 1
 
 n_rbf <- 2
 
@@ -248,7 +249,8 @@ for (mj in 1:G) {
         rocs[[model_idx]] <- ROC_curve$new(y[test_row_idx], p_hat)
 
         # create an AMS curve object
-        ams_obj[[model_idx]] <- AMS_data$new(y[test_row_idx], p_hat, w[test_row_idx], sum_w=sum_w)
+        w_this_partition <- w[test_row_idx] * sum_w/sum(w[test_row_idx])
+        ams_obj[[model_idx]] <- AMS_data$new(y[test_row_idx], p_hat, w_this_partition)#, sum_w=sum_w)
     }
 }
 ```
@@ -261,34 +263,20 @@ for(j in 1:G){
   i2 <- get_model_idx(j, K, K)
   average_auc <- mean(sapply(rocs[i1:i2], function(x) x$auc), na.rm=TRUE)
   #get a plot of the k ROC curves on the same axis
-  rocs[[i1]]$plot_curve(title=sprintf("All training data, %i-fold CV, Average AUC %.3f", K, round(average_auc, 3)))
-  for (k in 2:K) {
-    rocs[[get_model_idx(j, k, K)]]$plot_curve(add=T)
-  }
+  plot_rocs(rocs[i1:i2], title=sprintf("All training data, %i-fold CV, Average AUC %.3f", K, round(average_auc, 3)))
 }
-
 ```
 If we now also plot curves of the AMS against threshold we can get a feeling for what we should choose and how consistent they are across folds (for each model type). They are all relatively noisy, although `j=3` is comfortably the worst of the three in this respect. In an effort to account for this, and reduce the chance of overfitting the thresholds, we have taken to calculating the minimum curve over the K fold curves (by taking the minimum over folds at each threshold point) and then finding the maximum threshold for this curve. The results seem more robust, and give approximately $(0.6, 0.4, 0.6)$.
 ```{r avg ams and plot roc, error=TRUE}
 ams <- sapply(ams_obj, function(x) x$calc_ams())
-avg_ams_obj <- ams_obj[[1]]
+par(mar=c(3,3,3,3))
 for(j in 1:G){
   #find average auc over folds
   i1 <- get_model_idx(j, 1, K)
   i2 <- get_model_idx(j, K, K)
-  # avg_ams <- rowMeans(ams[,i1:i2])
   # calculate the minimum AMS over the curves at each point to get an overall lower bound curve
-  min_ams <- pmax(apply(ams[, i1:i2], 1, min), 1e-1)
-  # avg_ams_obj$ams <- avg_ams/sd_ams
-  avg_ams_obj$ams <- min_ams
-  average_max_thresh <- avg_ams_obj$get_max_thresh()
-  # average_max_thresh_2 <- mean(sapply(ams_obj[i1:i2], function(x) x$get_max_thresh()), na.rm=TRUE)
-  # average_max_thresh <- 0.5*(average_max_thresh_1 + average_max_thresh_2)
   #get a plot of the k ROC curves on the same axis
-  ams_obj[[i1]]$plot_ams(lgd=paste0("Max(Min(AMS)) at p=", round(average_max_thresh, 2)))
-  for (k in 2:K) {
-    ams_obj[[get_model_idx(j, k, K)]]$plot_ams(add=T)
-  }
+  plot_amss(ams_obj[i1:i2])
 }
 ```
 
@@ -361,7 +349,8 @@ for (mj in 1:G) {
     #create an ROC curve object
     full_rocs[[model_idx]] <- ROC_curve$new(yv[test_row_idx], p_hat)
 
-    amsv_obj[[model_idx]] <- AMS_data$new(yv[test_row_idx], p_hat, wv[test_row_idx], sum_w=sum_wv)
+    w_this_partition <- wv[test_row_idx] * sum_wv/sum(wv[test_row_idx])
+    amsv_obj[[model_idx]] <- AMS_data$new(yv[test_row_idx], p_hat, w_this_partition)#, sum_w=sum_wv)
 }
 ```
 
@@ -369,22 +358,13 @@ Plot ROC curves for each group on the validation set, with AUC for each.
 ```{r plot validation auc}
 . <- sapply(full_rocs, function(x) x$calc_auc())
 aucv <- sapply(full_rocs, function(x) round(x$auc, 3))
-# get a plot of the k ROC curves on the same axis
-full_rocs[[get_model_idx(1, 1, 1)]]$plot_curve(title=do.call(partial(sprintf, "Validation test-set, OOS AUCs (%.2f,%.2f,%.2f)"), as.list(aucv)), col=colours[1])
-for(j in 2:G){
-  #get a plot of the k ROC curves on the same axis
-  full_rocs[[get_model_idx(j, 1, 1)]]$plot_curve(add=T, col=colours[j])
-}
+par(mar=c(4,4,4,4))
+plot_rocs(full_rocs, title=sprintf("All training data, %i-fold CV, AUC (%.3f, %.3f, %.3f)", K, round(aucv[1], 3), round(aucv[2], 3), round(aucv[3], 3)))
 ```
 Now plotting the AMS thresholds for the validation set, we see that they differ substantially from those we saw in the training set, despite the K-fold CV. The validation set is much smaller than the full training set however, so we would expect it to be less reliable due to randomness in the data set. 
 ```{r plot validation ams thresholds}
+plot_amss(amsv_obj, min.max=FALSE)
 amsv <- sapply(amsv_obj, function(x) x$calc_ams())
-amsv_thresh <- sapply(amsv_obj, function(x) x$get_max_thresh())
-max_max_ams <- max(sapply(amsv_obj, function(x) x$max_ams))
-amsv_obj[[1]]$plot_ams(lgd=paste0("Max. AMS at p=", round(amsv_thresh, 2)), add=F, ylim=c(0, max_max_ams), col=colours[1])
-for(j in 2:G){
-  amsv_obj[[j]]$plot_ams(add=T, col=colours[j])
-}
 ```
 Summary results:
 ```{r print}

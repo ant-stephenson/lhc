@@ -27,6 +27,12 @@ Remove some columns that are not important for this analysis and average over an
 ```{r extract summarise}
 exp_data <- exp_data[, !colnames(exp_data) %in% c("c", "Train", "Validation", "model_type")]
 exp_data <- exp_data %>% group_by(n_rbf, lambda, poly) %>% summarise_all(funs(mean)) %>% as.data.frame()
+
+# consider scaling metrics by MAD(metric) to get a handle on variation
+scaled_auc <- exp_data[,"auc"]/exp_data[,"mad.auc."]
+scaled_ams <- exp_data[,"ams"]/exp_data[,"mad.ams."]
+exp_data[, "scaled.auc"] <- scaled_auc
+exp_data[, "scaled.ams"] <- scaled_ams
 ```
 
 Implement a convenient plotting function to summarise results.
@@ -102,16 +108,11 @@ Print results as a LaTeX table that can be imported into a report easily. Not to
 Surprisingly, the top model appears to have the following set of parameters: $n_{rbf}=2$, $\lambda = 1e-4$ and the inclusion of upto 3rd order polynomial terms.
 ```{r latex output}
 library(Hmisc)
-# consider scaling metrics by MAD(metric) to get a handle on variation
-scaled_auc <- exp_data[,"auc"]/exp_data[,"mad.auc."]
-scaled_ams <- exp_data[,"ams"]/exp_data[,"mad.ams."]
-exp_data[, "scaled.auc"] <- scaled_auc
-exp_data[, "scaled.ams"] <- scaled_ams
 #scaled <- head(arrange(exp_data, scaled_ams, scaled_auc))
 
 # sort/filter data to only retain what we want to record and round numerical values to 3d.p for readibility
 output <- exp_data[, c("n_rbf", "lambda", "poly", "auc", "mad.auc.", "ams", "mad.ams.", "scaled.auc", "scaled.ams")] %>%
-  arrange(desc(scaled.ams), desc(scaled.auc)) %>%
+  arrange(desc(ams), desc(auc)) %>%
   mutate_if(is.numeric, round, digits=3)
 
 # keep top 5 rows

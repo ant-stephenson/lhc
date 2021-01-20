@@ -115,17 +115,37 @@ plot_rocs <- function(rocs, title="ROC curves"){
 #' @param amss list of ams objects
 #' @param title str title to give plot
 #' @export
-plot_amss <- function(amss, title="AMS data"){
+plot_amss <- function(amss, title="AMS data", min.max=TRUE, ...){
   lapply(amss, function(x) x$calc_ams())
   y_max <- max(sapply(amss, function(x) max(x$ams)))
   n <- length(amss)
   colours <- brewer.pal(n+1, 'Blues')[2:(n+1)] #gets some nice blues but skips the lightest one
   ams <- amss[[1]]
+
+  # calculate the minimum bounding curve of the curves in amss
+  if (min.max) {
+    ams_vec <- sapply(amss, function(x) x$ams)
+    min_ams_obj <- ams
+    min_ams <- pmax(apply(ams_vec, 1, min), 1e-1)
+    min_ams_obj$ams <- min_ams
+    min_max_thresh <- min_ams_obj$get_max_thresh()
+
+    title <- sprintf("AMS plot with max-min (over folds) threshold at t=%.3f", min_max_thresh)
+  }
+
   plot(ams$thresholds, ams$ams, type="l", col=colours[1], main=title,
-       xlab="Decision Threshold", ylab="AMS", ylim=c(0, y_max))
+       xlab="Decision Threshold", ylab="AMS", ylim=c(0, y_max), ...)
 
   for(i in 2:n){
     ams <- amss[[i]]
     lines(ams$thresholds, ams$ams, type="l", col=colours[i])
+    if (!min.max) {
+      abline(v=ams$max_thresh, lty=2)
+    }
   }
+
+  if (min.max) {
+    abline(v=min_max_thresh, lty=2)
+  }
+  legend=legend("bottomleft", legend=1:n, fill=colours)
 }
