@@ -14,18 +14,20 @@
 #' @field X An nxd matrix with samples as rows and features as columns.
 #' @field y A length-n vector of 0s and 1s indicating true sample classes.
 #' @field coeffs A length-d vector of model coefficients.
+#' @field lambda regularization parameter
 logistic_model <- setRefClass("logistic_model",
   fields = c(
     X = "matrix",
     y = "numeric",
-    coeffs = "numeric"
+    coeffs = "numeric",
+    lambda = "numeric"
   ),
   methods = list(
-    initialize = function(X, y){
+    initialize = function(X, y, lambda=1e-6){
       "Provide X and y and the coeffs field will be calculated using logistic_reg"
       .self$X <- as.matrix(X)
       .self$y <- as.numeric(y)
-      .self$coeffs <- as.numeric(logistic_reg(as.matrix(X), as.numeric(y)))
+      .self$coeffs <- as.numeric(logistic_reg(as.matrix(X), as.numeric(y), lambda=lambda))
     },
     predict = function(X_test){
       "Provide a matrix of new samples and a vector of P(y=1) is returned"
