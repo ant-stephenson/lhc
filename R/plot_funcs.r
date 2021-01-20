@@ -98,10 +98,11 @@ generate_colours <- function(ncolours) {
 #' define a function to plot multiple roc objects on the same axes
 #' @param rocs list of roc objects
 #' @param title str title to give plot
+#' @import RColorBrewer
 #' @export
 plot_rocs <- function(rocs, title="ROC curves"){
   n <- length(rocs)
-  colours <- brewer.pal(n+1, 'Blues')[2:(n+1)] #gets some nice blues but skips the lightest one
+  colours <- colorRampPalette(brewer.pal(8, 'Blues')[2:8])(n) #gets some nice blues
   plot(0:1, 0:1, type="l", lty=2, xlab="False Positive Rate",
        ylab="True Positive Rate", main=title)
   legend("bottomright", legend=c("Chance", "Logistic Regression"),
@@ -114,12 +115,13 @@ plot_rocs <- function(rocs, title="ROC curves"){
 #' define a function to plot multiple ams objects on the same axes
 #' @param amss list of ams objects
 #' @param title str title to give plot
+#' @import RColorBrewer
 #' @export
 plot_amss <- function(amss, title="AMS data", min.max=TRUE, ...){
   lapply(amss, function(x) x$calc_ams())
   y_max <- max(sapply(amss, function(x) max(x$ams)))
   n <- length(amss)
-  colours <- brewer.pal(n+1, 'Blues')[2:(n+1)] #gets some nice blues but skips the lightest one
+  colours <- colorRampPalette(brewer.pal(8, 'Blues')[2:8])(n) #gets some nice blues
   ams <- amss[[1]]
 
   # calculate the minimum bounding curve of the curves in amss

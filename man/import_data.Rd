@@ -2,9 +2,7 @@
 % Please edit documentation in R/utility_funcs.r
 \name{import_data}
 \alias{import_data}
-\title{Import data from the Higgs csv file. Reorganise into covariates, labels and supplementary data (weights, ids)
-Replace -999s with NA
-Standardize covariates}
+\title{Import raw LHC data}
 \usage{
 import_data(filepath = "atlas-higgs-challenge-2014-v2.csv")
 }
@@ -15,7 +13,7 @@ import_data(filepath = "atlas-higgs-challenge-2014-v2.csv")
 named list of X, y, w, kaggle_w, kaggle_s, e_id, nj
 }
 \description{
-Import data from the Higgs csv file. Reorganise into covariates, labels and supplementary data (weights, ids)
-Replace -999s with NA
-Standardize covariates
+This function provides a standard way to load in the LHC dataset for our analysis pipeline.
+Undefined data (-999s) are replaces with NAs, columns are split into variables,
+labels and supplementary data.
 }

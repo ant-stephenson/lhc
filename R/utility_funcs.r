@@ -8,23 +8,23 @@ get_subset_idx <- function(x, labels) {
   !is.na(match(x, labels))
 }
 
-#' Import data from the Higgs csv file. Reorganise into covariates, labels and supplementary data (weights, ids)
-#' Replace -999s with NA
-#' Standardize covariates
+#' Import raw LHC data
+#'
+#' This function provides a standard way to load in the LHC dataset for our analysis pipeline.
+#' Undefined data (-999s) are replaces with NAs, columns are split into variables,
+#' labels and supplementary data.
 #'
 #' @param filepath str location of csv
 #' @return named list of X, y, w, kaggle_w, kaggle_s, e_id, nj
+#' @importFrom data.table fread
 #' @export
 import_data <- function(filepath="atlas-higgs-challenge-2014-v2.csv") {
-    # Import data - put all this in a function to create a pipeline
-    lhc_data <- read.csv(filepath)
-
-    n <- nrow(lhc_data)
+    # Fast load large csv with fread from data.table
+    lhc_data <- as.data.frame(fread(filepath))
 
     # Assign target variable
-    label <- lhc_data$Label
-    y <- rep(0,n)
-    y[label == "s"] <- 1
+    y <- rep(0, nrow(lhc_data))
+    y[lhc_data$Label == "s"] <- 1
 
     # Assign other useful label vectors (non-variable data)
     w <- lhc_data$Weight
@@ -33,18 +33,14 @@ import_data <- function(filepath="atlas-higgs-challenge-2014-v2.csv") {
     e_id <- lhc_data$EventId
     nj <- lhc_data$PRI_jet_num
 
-    # Setup design matrix, with intercept, taking care with -999s: this is why they're annoying
+    # Setup design matrix
     X_header <- names(lhc_data)[grep("Weight|Label|KaggleWeight|KaggleSet|EventId|PRI_jet_num", names(lhc_data), invert=TRUE)]
-    X <- as.matrix(lhc_data[, X_header])
+    X <- lhc_data[, X_header]
 
-    # shouldn't be necessary, but record -999s locations. makes it easy to transform back to -999 if desired. for now, replace with NA which should propagate
-    loc999s <- X == -999
-    X[loc999s] <- NA
-
-    X <- data.frame(X)
+    # Replace -999s with NAs
+    X[X==-999] <- NA
 
     output <- list(X=X, y=y, w=w, kaggle_w=kaggle_w, kaggle_s=kaggle_s, e_id=e_id, nj=nj)
-
     return(output)
 }
 

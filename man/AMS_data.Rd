@@ -23,6 +23,10 @@ from a model, and a vector of scaled sample weights are needed to initialise.
 \item{\code{thresholds}}{A vector of 30 decision thresholds.}
 
 \item{\code{ams}}{A vector of the AMS metric at each threshold.}
+
+\item{\code{max_ams}}{maximum ams}
+
+\item{\code{max_thresh}}{threshold of maximum ams}
 }}
 
 \section{Methods}{
