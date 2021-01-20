@@ -24,7 +24,7 @@ Kaggle sets:  ”t”:training, ”b”:public leaderboard, ”v”:private lead
 Set script parameters:
 ```{r initialise script params}
 # Regularisation (L2) parameter [global]
-lambda <- 3e-3
+lambda <- 1e-4
 
 # constraint parameter for L1 Logistic regression [global]
 C <- 1
@@ -32,7 +32,7 @@ C <- 1
 # number of jet/Higgs mass groups to build different models for
 G <- 3
 
-poly_order <- 1
+poly_order <- 3
 
 n_rbf <- 2
 
@@ -56,8 +56,11 @@ model_init <- partial(logistic_model$new, lambda=lambda)
 # }
 
 # pick training and validation sets
-train_label = c("t", "b")
+train_label = c("t")
 val_label <- c("v")
+
+# dir to save figures
+fig_dir <- path_join(c(dirname(getwd()), "doc/figs/"))
 ```
 
 
@@ -112,6 +115,24 @@ X <- X[, cols2keep]
 
 Xv <- scale_dat(Xv, X, na.rm=TRUE)
 ```
+
+Should we include interaction terms? Plot computation scaling as a function of number of initial features $d$ and order of polynomial terms of those to include, if we were to include all pairwise interactions.
+```{r scaling of interactions}
+nint <- function(d) {
+  exp(lgamma(d+1) - log(2) - lgamma(d-1))
+}
+tscale <- function(d,b) {
+  dI <- nint(d)
+  1 + dI^3/(b*d)^3 + dI^2/(b*d)^2 + dI/(b*d)
+}
+d <- 1:30
+b <- 1:3
+plot(d, tscale(d,b[1]), type="lin", col="blue", log="y")
+lines(d, tscale(d,b[2]), col="red")
+lines(d, tscale(d,b[3]), col="green")
+legend("bottomleft", legend=c("b=1", "b=2", "b=3"), fill=c("blue", "red", "green"))
+```
+
 
 Compute some initial parameters
 ```{r init params}
@@ -264,6 +285,7 @@ for(j in 1:G){
   average_auc <- mean(sapply(rocs[i1:i2], function(x) x$auc), na.rm=TRUE)
   #get a plot of the k ROC curves on the same axis
   plot_rocs(rocs[i1:i2], title=sprintf("All training data, %i-fold CV, Average AUC %.3f", K, round(average_auc, 3)))
+  pdf(file=path_join(c(fig_dir, sprintf("cvoos-auc-curves%i.pdf", j)))
 }
 ```
 If we now also plot curves of the AMS against threshold we can get a feeling for what we should choose and how consistent they are across folds (for each model type). They are all relatively noisy, although `j=3` is comfortably the worst of the three in this respect. In an effort to account for this, and reduce the chance of overfitting the thresholds, we have taken to calculating the minimum curve over the K fold curves (by taking the minimum over folds at each threshold point) and then finding the maximum threshold for this curve. The results seem more robust, and give approximately $(0.6, 0.4, 0.6)$.
@@ -277,6 +299,7 @@ for(j in 1:G){
   # calculate the minimum AMS over the curves at each point to get an overall lower bound curve
   #get a plot of the k ROC curves on the same axis
   plot_amss(ams_obj[i1:i2])
+  pdf(file=path_join(c(fig_dir, sprintf("cvoos-ams-curves%i.pdf", j)))
 }
 ```
 
@@ -360,11 +383,13 @@ Plot ROC curves for each group on the validation set, with AUC for each.
 aucv <- sapply(full_rocs, function(x) round(x$auc, 3))
 par(mar=c(4,4,4,4))
 plot_rocs(full_rocs, title=sprintf("All training data, %i-fold CV, AUC (%.3f, %.3f, %.3f)", K, round(aucv[1], 3), round(aucv[2], 3), round(aucv[3], 3)))
+pdf(file=path_join(c(fig_dir, "validation-auc-curves.pdf")))
 ```
 Now plotting the AMS thresholds for the validation set, we see that they differ substantially from those we saw in the training set, despite the K-fold CV. The validation set is much smaller than the full training set however, so we would expect it to be less reliable due to randomness in the data set. 
 ```{r plot validation ams thresholds}
 plot_amss(amsv_obj, min.max=FALSE)
 amsv <- sapply(amsv_obj, function(x) x$calc_ams())
+pdf(file=path_join(c(fig_dir, "validation-ams-curves.pdf")))
 ```
 Summary results:
 ```{r print}
@@ -378,7 +403,7 @@ sprintf("Validation set AMS = %.2f ± %.1f", mean(amsv), mad(amsv))
 Save the output results to a .csv file.
 ```{r record to file}
 result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "n_rbf"=n_rbf, "lambda"=lambda, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams), "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
-write.table(as.data.frame(result), file = sprintf("output/results_%s.csv", result_label), append = TRUE, sep = ",",
+write.table(as.data.frame(result), file = sprintf("/output/results_%s.csv", result_label), append = TRUE, sep = ",",
 eol = "\n", na = "NA", dec = ".", row.names = FALSE,
 col.names = FALSE, qmethod = c("escape", "double"))
 ```

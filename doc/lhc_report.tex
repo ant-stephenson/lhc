@@ -6,6 +6,10 @@
 \usepackage{pifont}
 % \setlist{nolistsep,leftmargin=*}
 
+% \usepackage{graphicx}
+% \graphicspath{{/figs}}
+% \DeclareGraphicsExtensions{.png, .pdf, .jpeg, .jpg, .eps}
+
 \pagestyle{fancy}
 \rhead{}
 \lhead{}
@@ -132,7 +136,7 @@ To attempt to capture generic higher order interaction-type effects, we implemen
 In order to try and model non-linear relationships between our features and the target labels, we decided to try and include polynomial transformations of the features. 
 
 \subsubsection{Interactions}
-Although we considered implementing interactions to further augment our covariates, we chose not to pursue this avenue in the end. The reason for this is that the number of combinations of pairwise interactions for our feature set is .... Including all of these is likely to significantly increase the risk of overfitting our model, and without a principled method to either choose to only include a subset of interactions, or a way to remove most of them, it seems preferable to skip this option. Additionally, the large increase in feature space would also lead to a sizeable increase in computation time, as the Hessian dimensions would increase by ... and hence the time by approximately ... (as our algorithm uses Newton's method which scales as $O(d^3)$ for a $d$-dimensional feature space).
+Although we considered implementing interactions to further augment our covariates, we chose not to pursue this avenue in the end. The reason for this is that the number of combinations of pairwise interactions for our feature set is 378 Including all of these is likely to significantly increase the risk of overfitting our model, and without a principled method to either choose to only include a subset of interactions, or a way to remove most of them, it seems preferable to skip this option. Additionally, the large increase in feature space would also lead to a sizeable increase in computation time, as the Hessian dimensions would increase by a factor $\sim 4-5$ and hence the time by approximately two orders of magnitude (as our algorithm uses Newton's method which scales as $O(d^3)$ for a $d$-dimensional feature space) for the case where we include polynomial terms upto third order. If we include only the original features plus interactions, the computation time scales by worse than three orders of magnitude in comparison.
 
 \section{Results}
 \label{results}
@@ -143,13 +147,30 @@ Although we considered implementing interactions to further augment our covariat
 To make decisions regarding the relative performance of our candidate models we used a 10-fold cross-validation procedure to train and test each of the permutations of our features and models. By running experiments that carried out the procedure, we were able to generate summary outputs that concisely captured a representation of performance. More precisely, we appended rows of information to a $.csv$ file for each experiment that could then be subsequently analysed to compare performance. Note that each experiment was run with an unspecified random seed, so we expect some degree of random variation between experiments even with no change to parameters, simply due to the change in data partitioning. We can use this scale of variance to aid identification of significant performance improvements. 10 fold cross-validation was picked as a compromise between speed of computation and in-sample vs out-of-sample variance; computation time scales as $O(KNd)$ for $K$ folds, $N$ data points and $d$ features, whilst we expect the variance of our (averaged over folds) performance estimate to scale as $\frac{1}{K}$. In effect, by picking (for example) 10 folds rather than 5, we are trading an increase in computation time of a factor of two for a decrease in estimator variance of the same factor. 
 
 \subsubsection{AMS Threshold}
-Part of our model selection process is to determine the thresholds we want to choose as part of our decision rule to convert probabilistic model outputs into class (signal) predictions. 
+Part of our model selection process is to determine the thresholds we want to choose as part of our decision rule to convert probabilistic model outputs into class (signal) predictions. By viewing the curves of AMS against threshold for each fold, on each model category, we can see how consistent this relationship is.
 
 \input{results_table}
 \label{table:1}
 
 \subsection{Predictions}
 To actually calculate AMS scores, we need to convert out probabilistic outputs into binary labels which means we need to pick a decision rule, i.e. a threshold over which we assign a label 1 (or $s$) vs 0 (or $b$).
+
+Using the model that ranked the best in terms of scaled AMS, we get the following results on the cross-validated out-of-sample performance for the training set and the hold-out test set:
+\newline
+Results for $\lambda=0.0001$, $G=3$, $n_{rbf}=2$, $K=10$ on training set ('t') and validation set ('v'):
+\begin{description}
+    \item[CV OOS AUC:] $0.87 \pm 0.0$
+    \item[CV OOS AMS:] $2.43 \pm 0.9$
+    \item[Test set AUC:] $0.85 \pm 0.0$
+    \item[Test set AMS:] $1.97 \pm 1.2$
+\end{description} 
+where the "error" term here shows the mean absolute deviation across folds.
+
+Clearly the result for the test set is significantly worse than that for the 10-fold out-of-sample measure. A possible explanation can be found by looking at the AMS threshold curves for the two datasets for this model. For the group corresponding to 0 jets, the threshold for the maximum AMS is substantially lower than what we saw in the training set at 0.2 compared to 0.6. The other two jet categories have an optimal threshold of 0.5 in the test set, versus 0.4 and 0.6 in the training set. 
+
+\begin{figure}[h]
+    \includegraphics[width=8cm]{figs/validation-ams-curves.pdf}
+\end{figure}
 
 \section{Conclusion}
 \label{conclusion}
