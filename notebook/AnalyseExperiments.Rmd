@@ -69,6 +69,18 @@ Run plots for various permutations of our model parameters to see their relative
 # order by our x variable
 exp_data <- exp_data[order(exp_data[, "lambda"]), ]
 
+# dir to save figures
+fig_dir <- path_join(c(dirname(getwd()), "doc/figs/"))
+
+set_filepath <- function(filename) path_join(c(fig_dir, sprintf("%s.pdf", filename)))
+
+# function to wrap figure saving
+save_fig <- function(plot_func, filepath, filetype=pdf) {
+  filetype(file=filepath)
+  plot_func()
+  dev.off()
+}
+
 # plot AUC and AMS vs regularisation parameter lambda for different numbers of RBF centroids, for no polynomial transformations added
 filt0 <- exp_data[, "poly"]==1
 plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
@@ -124,5 +136,5 @@ colnames(output) <- sub("(\\w+)\\.(\\w+)\\.?", "\\$\\1_\\{\\2\\}\\$", colnames(o
 colnames(output) <- sub("n\\_rbf", "\\$n_{rbf}\\$", colnames(output))
 
 # Generate LaTeX table
-latex(output, file=path_join(c(dirname(getwd()), "doc/results_table.tex")), caption="Results table of the top 5 experiments")
+latex(output, file=path_join(c(dirname(getwd()), "doc/results_table.tex")), caption="Results table of the top 5 experiments", label="table:results")
 ```
