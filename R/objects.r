@@ -153,7 +153,7 @@ AMS_data <- setRefClass("AMS_data",
         #use each threshold to make a classification
         y_pred <- prob >= thresholds[i]
         #with these classifications calculate AMS
-        AMS[i] <- ams_metric(y, y_pred, weights)
+        AMS[i] <- calculate_ams_partition(y, y_pred, weights)
       }
       .self$ams <- AMS
     },
