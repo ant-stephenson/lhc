@@ -56,7 +56,7 @@ import_data <- function(filepath="atlas-higgs-challenge-2014-v2.csv") {
 #' @param na.rm flag to be compatible with colMeans and sd (to ignore NA)
 #' @return augmented matrix of covariates, standardized and an intercept column
 #' @export
-scale_dat <- function(X, ref, na.rm=FALSE){
+scale_dat <- function(X, ref, na.rm=FALSE, add.intercept=TRUE){
   if(ncol(X) != ncol(ref)) stop('Two inputs must have the same number of columns')
 
   #calculate column means and sds of ref, ignoring NAs
@@ -73,7 +73,7 @@ scale_dat <- function(X, ref, na.rm=FALSE){
     Intercept <- rep(1, nrow(X))
     X <- cbind(Intercept, X)
   }
-  
+
   return(X)
 }
 

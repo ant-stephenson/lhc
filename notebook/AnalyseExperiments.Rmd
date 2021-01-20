@@ -63,29 +63,43 @@ Run plots for various permutations of our model parameters to see their relative
 # order by our x variable
 exp_data <- exp_data[order(exp_data[, "lambda"]), ]
 
+# plot AUC and AMS vs regularisation parameter lambda for different numbers of RBF centroids, for no polynomial transformations added
 filt0 <- exp_data[, "poly"]==1
 plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
 plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
 
-# weird oscillations must be due to a change I made to the poly function that removes cols with values > 1e6 (now changed to 1e7). Didn't expect it to make such a difference. Non-deterministic between random subsets of data. A very coarse solutioon but I didn't expect it to matter. Might need to improve
+# plot AUC and AMS vs regularisation parameter lambda for different numbers of RBF centroids, for second order polynomial transformations added
 filt0 <- exp_data[, "poly"]==2
 plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
 plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
 
+# plot AUC and AMS vs regularisation parameter lambda for different numbers of RBF centroids, for 2nd and 3rd order polynomial transformations added
 filt0 <- exp_data[, "poly"]==3
 plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
 plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
 
+# plot AUC and AMS vs regularisation parameter lambda for different numbers of orders of polynomial transformations, for no added RBF centroids
 filt0 <- exp_data[, "n_rbf"]==0
 plot_metric(exp_data, "lambda", "auc", "poly", filt0, log="x")
 plot_metric(exp_data, "lambda", "ams", "poly", filt0, log="x")
 
-exp_data <- exp_data[order(exp_data[, "poly"]), ]
+# plot AUC and AMS (scaled by respective mean absolute deviation) vs regularisation parameter lambda for different numbers of orders of polynomial transformations, for no added RBF centroids
 filt0 <- exp_data[, "n_rbf"]==0
-plot_metric(exp_data, "poly", "auc", filt0=filt0)
+plot_metric(exp_data, "lambda", "scaled.auc", "poly", filt0, log="x")
+plot_metric(exp_data, "lambda", "scaled.ams", "poly", filt0, log="x")
+
+# plot boxplots of scaled AUC and AMS for each polynomial transformation
+boxplot(scaled.auc~poly, data=exp_data, main="Scaled AUC for each order polynomial transformation")
+boxplot(scaled.ams~poly, data=exp_data, main="Scaled AMS for each order polynomial transformation")
+
+# plot boxplots of scaled AUC and AMS for additional RBF centroid
+boxplot(scaled.auc~n_rbf, data=exp_data, main="AUC for each additional RBF centroid")
+boxplot(scaled.ams~n_rbf, data=exp_data, main="AMS for each additional centroid feature")
 ```
 
-Print results as a LaTeX table that can be copied:
+Print results as a LaTeX table that can be imported into a report easily. Not too surprisingly we see different models appear at the top of our list depending on how we decide to choose the best model. Since our goal is ultimately to maximise AMS, it makes sense that this (rather than AUC) should be the metric we choose, despite the higher variance it displays. To try and mitigate this variance, we can  choose to sort by a scaled version of AMS, where we take the mean absolute deviation across the folds and scale by that, to try and optimise for the best result with the least variation and therefore hopefully the best generalisation.
+
+Surprisingly, the top model appears to have the following set of parameters: $n_{rbf}=2$, $\lambda = 1e-4$ and the inclusion of upto 3rd order polynomial terms.
 ```{r latex output}
 library(Hmisc)
 # consider scaling metrics by MAD(metric) to get a handle on variation
