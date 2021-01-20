@@ -135,7 +135,9 @@ AMS_data <- setRefClass("AMS_data",
     prob = "numeric",
     weights = "numeric",
     thresholds = "numeric",
-    ams = "numeric"
+    ams = "numeric",
+    max_ams = "numeric",
+    max_thresh = "numeric",
   ),
   methods = list(
     initialize = function(y, prob, weights){
@@ -157,12 +159,15 @@ AMS_data <- setRefClass("AMS_data",
       }
       .self$ams <- AMS
     },
+    get_max_thresh = function(){
+      .self$max_thresh <- thresholds[which.max(ams)]
+    },
     plot_ams = function(){
       "Plot AMS against threshold."
       #find the maximum ams threshold
       .self$calc_ams()
-      max_ams <- max(ams)
-      max_thresh <- thresholds[which.max(ams)]
+      .self$max_ams <- max(ams)
+      .self$max_thresh <- get_max_thresh()
 
       #plot the ams at different thresholds, with a line at the best
       plot(thresholds, ams, type="l", col="steelblue", main="AMS at different decision thresholds")
