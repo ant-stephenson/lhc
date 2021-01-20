@@ -61,6 +61,14 @@ So we can see that the missing data is explained by the combination of an unexpe
 \label{method}
 
 \subsection{Performance Metrics}
+
+\subsubsection{ROC and AUC}
+A ROC (Receiver Operating Characteristic) curve plots the true positive rate against the false positive rate for a binary classifier with a varying decision threshold. By doing this we can show the ability of the classifier to dscriminate between the two classes and attain a metric for the performance that we can use to compare models. The worst possible model is given by a line at $y=x$ and any curve above this line is an improvement. 
+
+The AUC (Area Under the [ROC] Curve) provides a compression of the assessment the ROC curve provides by integrating the ROC curve and giving a value in $[0,1]$ that represents an overall view of the discriminatory power of the model. A value of 0.5 corresponds to the worst model ($y=x$) whilst 1.0 would represent a perfect model. 
+
+Note that for our problem, the actual ratio of signal:background events is very small, which would cause a problem in interpreting the AUC reliably. In the actual dataset, this problem is mitigated by providing comparable numbers of rows with signal labels as to rows with background labels, each with an associated weight, such that the overall weighted events of signal and background match the actual observed data.
+
 \subsubsection{AMS}
 The AMS metric is the Approximate Median discovery Significance;  an approximation of the \emph{significance} defined by 
 \eq{
@@ -74,12 +82,7 @@ See \cite{HiggsML} for more details.
 
 Since this is the formal objective we aim to maximise, it might make sense to try and optimise it directly. A little analysis however reveals that the function is non-convex and therefore a poor choice. See \ref{appendix:ams} for the full calculation.
 
-\subsubsection{ROC and AUC}
-A ROC (Receiver Operating Characteristic) curve plots the true positive rate against the false positive rate for a binary classifier with a varying decision threshold. By doing this we can show the ability of the classifier to dscriminate between the two classes and attain a metric for the performance that we can use to compare models. The worst possible model is given by a line at $y=x$ and any curve above this line is an improvement. 
-
-The AUC (Area Under the [ROC] Curve) provides a compression of the assessment the ROC curve provides by integrating the ROC curve and giving a value in $[0,1]$ that represents an overall view of the discriminatory power of the model. A value of 0.5 corresponds to the worst model ($y=x$) whilst 1.0 would represent a perfect model. 
-
-Note that for our problem, the actual ratio of signal:background events is very small, which would cause a problem in interpreting the AUC reliably. In the actual dataset, this problem is mitigated by providing comparable numbers of rows with signal labels as to rows with background labels, each with an associated weight, such that the overall weighted events of signal and background match the actual observed data.
+To compute the AMS for a given model output $p \in [0,1]$, we also need to define a \emph{decision rule} that determines the threshold probability at which a signal is declared. For example, if we choose a default threshold, with no prior knowledge at $\theta = 0.5$ then we set our prediction $\hat{y} = s$ if $p > \theta$. In much the same way as we plot the ROC curve by omputing the TPR and FPR at different thresholds, so we can plot a curve of AMS against this threshold and thereby determine an optimal value. 
 
 \subsection{Logistic Regression}
 We chose to use a logistic regression as a baseline model to try and solve our classification task. The logic for this was two-fold; we would have a robust, flexible model to compare other modelling approaches to, as well as retaining the capacity to augment it with additional features which could include other models as sub-models within the logistic regression model. 
@@ -135,7 +138,12 @@ Although we considered implementing interactions to further augment our covariat
 \label{results}
 
 \subsection{Model Selection}
+
+\subsubsection{Cross Validation}
 To make decisions regarding the relative performance of our candidate models we used a 10-fold cross-validation procedure to train and test each of the permutations of our features and models. By running experiments that carried out the procedure, we were able to generate summary outputs that concisely captured a representation of performance. More precisely, we appended rows of information to a $.csv$ file for each experiment that could then be subsequently analysed to compare performance. Note that each experiment was run with an unspecified random seed, so we expect some degree of random variation between experiments even with no change to parameters, simply due to the change in data partitioning. We can use this scale of variance to aid identification of significant performance improvements. 10 fold cross-validation was picked as a compromise between speed of computation and in-sample vs out-of-sample variance; computation time scales as $O(KNd)$ for $K$ folds, $N$ data points and $d$ features, whilst we expect the variance of our (averaged over folds) performance estimate to scale as $\frac{1}{K}$. In effect, by picking (for example) 10 folds rather than 5, we are trading an increase in computation time of a factor of two for a decrease in estimator variance of the same factor. 
+
+\subsubsection{AMS Threshold}
+Part of our model selection process is to determine the thresholds we want to choose as part of our decision rule to convert probabilistic model outputs into class (signal) predictions. 
 
 \input{results_table}
 \label{table:1}
