@@ -69,8 +69,11 @@ scale_dat <- function(X, ref, na.rm=FALSE){
   }
 
   #also add column of 1s called intercept
-  Intercept <- rep(1, nrow(X))
-  X <- cbind(Intercept, X)
+  if (add.intercept) {
+    Intercept <- rep(1, nrow(X))
+    X <- cbind(Intercept, X)
+  }
+  
   return(X)
 }
 
@@ -286,9 +289,12 @@ poly_transform <- function(X, b=2){
     # cors[!lower.tri(cors)] <- 0
     # X <- X[, !apply(cors,2,function(x) any(abs(x) > 0.80, na.rm=TRUE))]
 
-    #remove columns with particularly large values might overflow
-    max_val <- apply(X, 2, function(x) log10(max(x, na.rm=TRUE)))
-    X <- X[, names(max_val[max_val < 6])]
+    #truncate particularly large values that might overflow
+    if (b >2) {
+      max_val <- apply(X, 2, function(x) log10(max(x, na.rm=TRUE)))
+      X <- X[, names(max_val[max_val < 8])]
+        # X[abs(X) > 1e8] <- 1e8
+    }
     return(X)
 }
 

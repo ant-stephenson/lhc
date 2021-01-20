@@ -12,20 +12,24 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r import}
 library(ggplot2)
 library(dplyr)
-
-source("plot_funcs.R")
+library(fs)
+library(lhc)
 ```
 
 # Analyse Experiments
 
 ```{r import}
-filepath <- "results_experiments2_edit.csv"
+filepath <- path_join(c(dirname(getwd()), "/output/results_experiments4.csv"))
 exp_data <- read.csv(filepath)
-# sort by maximum auc and ams results
-# exp_data <- exp_data[order(-exp_data[, "auc"], -exp_data[, "ams"], exp_data[, "lambda"]), ]
-
 ```
 
+Remove some columns that are not important for this analysis and average over any duplicated experiments:
+```{r extract summarise}
+exp_data <- exp_data[, !colnames(exp_data) %in% c("c", "Train", "Validation", "model_type")]
+exp_data <- exp_data %>% group_by(n_rbf, lambda, poly) %>% summarise_all(funs(mean)) %>% as.data.frame()
+```
+
+Implement a convenient plotting function to summarise results.
 ```{r plot}
 # define function to plot against our metric
 plot_metric <- function(data, xlabel, ylabel, loop_label=NULL, filt0=TRUE, ...) {
@@ -52,7 +56,10 @@ plot_metric <- function(data, xlabel, ylabel, loop_label=NULL, filt0=TRUE, ...) 
   }
   legend("bottomleft", legend=c(init_idx:(ntrials+(init_idx-1))), fill=colours)
 }
+```
 
+Run plots for various permutations of our model parameters to see their relative performance on our key metrics:
+```{r run the plots}
 # order by our x variable
 exp_data <- exp_data[order(exp_data[, "lambda"]), ]
 
@@ -76,4 +83,31 @@ plot_metric(exp_data, "lambda", "ams", "poly", filt0, log="x")
 exp_data <- exp_data[order(exp_data[, "poly"]), ]
 filt0 <- exp_data[, "n_rbf"]==0
 plot_metric(exp_data, "poly", "auc", filt0=filt0)
+```
+
+Print results as a LaTeX table that can be copied:
+```{r latex output}
+library(Hmisc)
+# consider scaling metrics by MAD(metric) to get a handle on variation
+scaled_auc <- exp_data[,"auc"]/exp_data[,"mad.auc."]
+scaled_ams <- exp_data[,"ams"]/exp_data[,"mad.ams."]
+exp_data[, "scaled.auc"] <- scaled_auc
+exp_data[, "scaled.ams"] <- scaled_ams
+#scaled <- head(arrange(exp_data, scaled_ams, scaled_auc))
+
+# sort/filter data to only retain what we want to record and round numerical values to 3d.p for readibility
+output <- exp_data[, c("n_rbf", "lambda", "poly", "auc", "mad.auc.", "ams", "mad.ams.", "scaled.auc", "scaled.ams")] %>%
+  arrange(desc(scaled.ams), desc(scaled.auc)) %>%
+  mutate_if(is.numeric, round, digits=3)
+
+# keep top 5 rows
+output <- output[1:5, ]
+print(output)
+
+# make column names latex friendly
+colnames(output) <- sub("(\\w+)\\.(\\w+)\\.?", "\\$\\1_\\{\\2\\}\\$", colnames(output))
+colnames(output) <- sub("n\\_rbf", "\\$n_{rbf}\\$", colnames(output))
+
+# Generate LaTeX table
+latex(output, file=path_join(c(dirname(getwd()), "doc/results_table.tex")), caption="Results table of the top 5 experiments")
 ```

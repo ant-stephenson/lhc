@@ -17,11 +17,11 @@ library(tidyr)
 library(Matrix)
 library(fs)
 library(purrr)
-
-source("utility_funcs.r")
-source("plot_funcs.r")
-source("lr_funcs.r")
-source("lr1_funcs.r")
+library(lhc)
+# source("utility_funcs.r")
+# source("plot_funcs.r")
+# source("lr_funcs.r")
+# source("lr1_funcs.r")
 ```
 Kaggle sets:  ”t”:training, ”b”:public leaderboard, ”v”:private leaderboard, ”u”:unused.
 Set script parameters:
@@ -401,7 +401,7 @@ sprintf("Validation set AMS = %.2f ± %.1f", mean(amsv), mad(amsv))
 Save the output results to a .csv file.
 ```{r record to file}
 result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "n_rbf"=n_rbf, "lambda"=lambda, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams), "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
-write.table(as.data.frame(result), file = sprintf("results_%s.csv", result_label), append = TRUE, sep = ",",
+write.table(as.data.frame(result), file = sprintf("output/results_%s.csv", result_label), append = TRUE, sep = ",",
 eol = "\n", na = "NA", dec = ".", row.names = FALSE,
 col.names = FALSE, qmethod = c("escape", "double"))
 ```

@@ -1,0 +1,26 @@
+---  
+title: "Notebook"
+author: "Georgie Mansell, Anthony Stephenson"
+date: "25/1/2021"
+output: 
+  pdf_document:
+    extra_dependencies: ["dirtree"]
+    toc: yes 
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r child = '1_DataExploration.rmd'}
+```
+
+```{r child = '2_SVM.rmd'}
+```
+
+```{r child = '3_LogisticRegression.rmd'}
+```
+
+```{r child = '4_Results.rmd'}
+```
+
