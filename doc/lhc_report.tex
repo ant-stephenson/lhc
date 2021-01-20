@@ -6,9 +6,7 @@
 \usepackage{pifont}
 % \setlist{nolistsep,leftmargin=*}
 
-% \usepackage{graphicx}
-% \graphicspath{{/figs}}
-% \DeclareGraphicsExtensions{.png, .pdf, .jpeg, .jpg, .eps}
+\graphicspath{{./figs/}}
 
 \pagestyle{fancy}
 \rhead{}
@@ -149,6 +147,23 @@ To make decisions regarding the relative performance of our candidate models we 
 \subsubsection{AMS Threshold}
 Part of our model selection process is to determine the thresholds we want to choose as part of our decision rule to convert probabilistic model outputs into class (signal) predictions. By viewing the curves of AMS against threshold for each fold, on each model category, we can see how consistent this relationship is.
 
+\begin{figure}[htbp]
+    \begin{adjustbox}{max width=1.4\linewidth,center}
+    \centering
+    \subfloat[$j=0$]{
+        \includegraphics[width=0.4\textwidth] {cvoos-ams-curves1.pdf}
+        \label{fig:img1} } \hspace*{-0.9em}
+    \subfloat[$j=1$]{
+        \includegraphics[width=0.4\textwidth] {cvoos-ams-curves2.pdf}
+        \label{fig:img2} } \hspace*{-0.9em}
+    \subfloat[$j=2+$]{
+        \includegraphics[width=0.4\textwidth] {cvoos-ams-curves3.pdf}
+        \label{fig:img3} }
+    \end{adjustbox}
+    \caption{CV OOS AMS curves for each jet categor}
+    \label{fig:img}
+\end{figure}
+
 \input{results_table}
 \label{table:1}
 
@@ -169,7 +184,8 @@ where the "error" term here shows the mean absolute deviation across folds.
 Clearly the result for the test set is significantly worse than that for the 10-fold out-of-sample measure. A possible explanation can be found by looking at the AMS threshold curves for the two datasets for this model. For the group corresponding to 0 jets, the threshold for the maximum AMS is substantially lower than what we saw in the training set at 0.2 compared to 0.6. The other two jet categories have an optimal threshold of 0.5 in the test set, versus 0.4 and 0.6 in the training set. 
 
 \begin{figure}[h]
-    \includegraphics[width=8cm]{figs/validation-ams-curves.pdf}
+    \includegraphics[width=8cm]{validation-ams-curves.pdf}
+    \caption{AMS curves for the test set}
 \end{figure}
 
 \section{Conclusion}
