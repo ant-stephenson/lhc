@@ -1,4 +1,4 @@
-#' @import CVXR
+#' @importFrom CVXR Variable Problem
 fit_l1_logreg <- function(X, y, C=1) {
   nb <- ncol(X)
   b <- Variable(nb, 1)

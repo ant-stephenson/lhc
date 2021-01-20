@@ -1,6 +1,7 @@
 #' Function to generate colours that are quite distinct
 #' @param ncolours number of colours we want
 #' @return vector of hex colours
+#' @export
 generate_colours <- function(ncolours) {
   colours <- vector("list", ncolours)
   for (i in 1:ncolours) {
@@ -12,7 +13,7 @@ generate_colours <- function(ncolours) {
   return(unlist(colours))
 }
 
-#If we're going for OOP approach for ROC, use ROC_data$new(y_test, prob)
+#If we're going for OOP approach for ROC, use ROC_curve$new(y_test, prob)
 #' Compute receiver operating characteristic (ROC) curve
 #'
 #' @param y response vector
@@ -39,7 +40,7 @@ generate_colours <- function(ncolours) {
 #     return(list(FP, TP))
 # }
 
-#If we're going for OOP approach for ROC, use ROC_data$new(y_test, prob); roc$calc_auc()
+#If we're going for OOP approach for ROC, use ROC_curve$new(y_test, prob); roc$calc_auc()
 #' Calculate the area under the ROC curve (AUC) as a metric of performance
 #'
 #' @param FP false positive rate (vector)
@@ -60,7 +61,7 @@ generate_colours <- function(ncolours) {
 #     return(AUC)
 # }
 
-#If we're going for OOP approach for ROC, use ROC_data$new(y_test, prob); roc$plot_curve()
+#If we're going for OOP approach for ROC, use ROC_curve$new(y_test, prob); roc$plot_curve()
 #' Plot ROC curve for particular model
 #'
 #' @param y response vector
