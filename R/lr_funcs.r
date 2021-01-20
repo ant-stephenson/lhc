@@ -117,7 +117,6 @@ l1_logistic_reg <- function(X, y, C) {
 #' @param lambda [Optional] L2 regularisation parameter
 #' @return b vector of coefficients
 #' @import Matrix
-#' @export
 logistic_reg <- function(X, y, lambda = 0) {
     invlink <- logisticf
     dinvlink <- function(x) exp(-x)/(1+exp(-x))^2
