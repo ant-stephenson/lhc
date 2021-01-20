@@ -284,8 +284,9 @@ for(j in 1:G){
   i2 <- get_model_idx(j, K, K)
   average_auc <- mean(sapply(rocs[i1:i2], function(x) x$auc), na.rm=TRUE)
   #get a plot of the k ROC curves on the same axis
+  pdf(file=path_join(c(fig_dir, sprintf("cvoos-auc-curves%i.pdf", j))))
   plot_rocs(rocs[i1:i2], title=sprintf("All training data, %i-fold CV, Average AUC %.3f", K, round(average_auc, 3)))
-  pdf(file=path_join(c(fig_dir, sprintf("cvoos-auc-curves%i.pdf", j)))
+  dev.off()
 }
 ```
 If we now also plot curves of the AMS against threshold we can get a feeling for what we should choose and how consistent they are across folds (for each model type). They are all relatively noisy, although `j=3` is comfortably the worst of the three in this respect. In an effort to account for this, and reduce the chance of overfitting the thresholds, we have taken to calculating the minimum curve over the K fold curves (by taking the minimum over folds at each threshold point) and then finding the maximum threshold for this curve. The results seem more robust, and give approximately $(0.6, 0.4, 0.6)$.
@@ -298,8 +299,9 @@ for(j in 1:G){
   i2 <- get_model_idx(j, K, K)
   # calculate the minimum AMS over the curves at each point to get an overall lower bound curve
   #get a plot of the k ROC curves on the same axis
+  pdf(file=path_join(c(fig_dir, sprintf("cvoos-ams-curves%i.pdf", j))))
   plot_amss(ams_obj[i1:i2])
-  pdf(file=path_join(c(fig_dir, sprintf("cvoos-ams-curves%i.pdf", j)))
+  dev.off()
 }
 ```
 
@@ -381,15 +383,17 @@ Plot ROC curves for each group on the validation set, with AUC for each.
 ```{r plot validation auc}
 . <- sapply(full_rocs, function(x) x$calc_auc())
 aucv <- sapply(full_rocs, function(x) round(x$auc, 3))
+pdf(file=path_join(c(fig_dir, "validation-auc-curves.pdf")))
 par(mar=c(4,4,4,4))
 plot_rocs(full_rocs, title=sprintf("All training data, %i-fold CV, AUC (%.3f, %.3f, %.3f)", K, round(aucv[1], 3), round(aucv[2], 3), round(aucv[3], 3)))
-pdf(file=path_join(c(fig_dir, "validation-auc-curves.pdf")))
+dev.off()
 ```
 Now plotting the AMS thresholds for the validation set, we see that they differ substantially from those we saw in the training set, despite the K-fold CV. The validation set is much smaller than the full training set however, so we would expect it to be less reliable due to randomness in the data set. 
 ```{r plot validation ams thresholds}
-plot_amss(amsv_obj, min.max=FALSE)
 amsv <- sapply(amsv_obj, function(x) x$calc_ams())
 pdf(file=path_join(c(fig_dir, "validation-ams-curves.pdf")))
+plot_amss(amsv_obj, min.max=FALSE)
+dev.off()
 ```
 Summary results:
 ```{r print}
