@@ -18,16 +18,12 @@ library(Matrix)
 library(fs)
 library(purrr)
 library(lhc)
-# source("utility_funcs.r")
-# source("plot_funcs.r")
-# source("lr_funcs.r")
-# source("lr1_funcs.r")
 ```
 Kaggle sets:  ”t”:training, ”b”:public leaderboard, ”v”:private leaderboard, ”u”:unused.
 Set script parameters:
 ```{r initialise script params}
 # Regularisation (L2) parameter [global]
-lambda <- 10
+lambda <- 1e-4
 
 # constraint parameter for L1 Logistic regression [global]
 C <- 1
@@ -37,18 +33,20 @@ G <- 3
 
 poly_order <- 3
 
+n_rbf <- 2
+
 # AMS thresholds
 thresholds <- c(0.6, 0.4, 0.6)
 
 # name to use in the .csv output of results
-result_label <- "test_poly3"
+result_label <- "test_private_leaderboard"
 
 # choose model. Interchangeable so long as we have implemented polymorphism across the model classes so that they share a common interface. Use "partial" to call with optional parameters to enforce an interface of f(X,y)
 # L2 logistic regression
-# model_init <- partial(logistic_model$new, lambda=lambda)
+model_init <- partial(logistic_model$new, lambda=lambda)
 
 # Constrained logistic regression (using CVXR)
-model_init <- partial(logistic_l1_model$new, C=C)
+# model_init <- partial(logistic_l1_model$new, C=C)
 
 
 # model_init <- function(X, y, w=w) {
@@ -57,8 +55,8 @@ model_init <- partial(logistic_l1_model$new, C=C)
 # }
 
 # pick training and validation sets
-train_label = c("t")
-val_label <- c("b")
+train_label = c("t", "b")
+val_label <- c("v")
 ```
 
 
@@ -116,7 +114,6 @@ Xv <- scale_dat(Xv, X, na.rm=TRUE)
 
 Compute some initial parameters
 ```{r init params}
-n_rbf <- 1
 s <- avg_median_pairwise_distance(X)
 
 # K-Fold CV partitioning
