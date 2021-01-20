@@ -155,38 +155,36 @@ logistic_reg <- function(X, y, lambda = 0) {
     return(b)
 }
 
-
-#defining an object class for a logistic regression model
-#' @import methods
-logistic_model <- setRefClass("logistic_model",
-                                 fields = c(
-                                   X = "matrix",
-                                   y = "numeric",
-                                   coeffs = "numeric",
-                                   prob = "numeric"))
-
-#to initialise provide a design matrix and output label
-#then uses the logistic regression implementation to find the coefficients
-#uses the coefficients to find p(y=1) (probability of signal)
-#' @import methods
-logistic_model$methods(
-  initialize = function(X_train, y_train, lambda=1e-6){
-    X_train <- as.matrix(X_train)
-    y_train <- as.numeric(y_train)
-
-    .self$X <- X_train
-    .self$y <- y_train
-
-    b <- logistic_reg(X_train, y_train, lambda=lambda)
-    .self$coeffs <- as.numeric(b)
-    .self$prob <- as.numeric(logisticf(X_train %*% b))
-  },
-
-  #also defines a method to use this model to predict class of new points
-  predict  = function(X_test){
-    return(logisticf(as.matrix(X_test) %*% .self$coeffs))
-  }
-)
+# removing duplication from objects - dont mind if we put it here instead though!
+# #defining an object class for a logistic regression model
+# logistic_model <- setRefClass("logistic_model",
+#                                  fields = c(
+#                                    X = "matrix",
+#                                    y = "numeric",
+#                                    coeffs = "numeric",
+#                                    prob = "numeric"))
+#
+# #to initialise provide a design matrix and output label
+# #then uses the logistic regression implementation to find the coefficients
+# #uses the coefficients to find p(y=1) (probability of signal)
+# logistic_model$methods(
+#   initialize = function(X_train, y_train, lambda=1e-6){
+#     X_train <- as.matrix(X_train)
+#     y_train <- as.numeric(y_train)
+#
+#     .self$X <- X_train
+#     .self$y <- y_train
+#
+#     b <- logistic_reg(X_train, y_train, lambda=lambda)
+#     .self$coeffs <- as.numeric(b)
+#     .self$prob <- as.numeric(logisticf(X_train %*% b))
+#   },
+#
+#   #also defines a method to use this model to predict class of new points
+#   predict  = function(X_test){
+#     return(logisticf(as.matrix(X_test) %*% .self$coeffs))
+#   }
+# )
 
 # X <- model.matrix(~1 + x1 + x2, data.frame(x1=rnorm(1000), x2=rnorm(1000)))
 # b <- abs(rnorm(3)) + 1

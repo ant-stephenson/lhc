@@ -3,7 +3,7 @@
 #' Fit a soft margin support vector machine for binary classification.
 #'
 #' @param X An nxd matrix with samples as rows and features as columns.
-#' @param y A length-n vector of 0s and 1s indicating true sample classes.
+#' @param y A length-n vector of -1s and 1s indicating true sample classes.
 #' @param C Regularisation parameter.
 #'
 #' @importFrom quadprog solve.QP
@@ -42,7 +42,7 @@ svm <- function(X, y, C=1){
   }
 
   # support vectors have lambda != 0
-  svs <- which(lambda > 1e-4)
+  svs <- which(lambda > 0.01)
 
   # find w_0 using the support vectors
   w0 <- 0
@@ -54,29 +54,9 @@ svm <- function(X, y, C=1){
   # return a function to predict class of new points
   f <- function(X_test){
     y <- X_test %*% t(w) + rep(w0, nrow(X_test))
-    return(sign(y))
+    return(as.numeric(sign(y)))
   }
 }
-
-## Test simple SVM on 2D dataset
-# #Generate simple dataset
-# n <- 500
-# y <- c(rep(1, n/2), rep(-1, n/2))
-# x_1 <- c(rnorm(n/2, 2, 2), rnorm(n/2, 8, 3))
-# x_2 <- c(rnorm(n/2, 3, 2), rnorm(n/2, 10, 3))
-# X <- matrix(c(x_1, x_2), ncol=2)
-#
-# #shuffle
-# ind <- sample(1:n, n)
-# y <- y[ind]
-# X <- X[ind, ]
-# plot(X[,1], X[,2], col=as.factor(y), pch=16)
-#
-# #plot coloured by predicted class
-# model <- svm(X, y, C=1)
-# y_pred <- model(X)
-# plot(X[,1], X[,2], col=as.factor(y_pred), pch=16)
-
 
 
 #' Kernel SVM
@@ -84,21 +64,20 @@ svm <- function(X, y, C=1){
 #' Fit a kernel support vector machine for binary classification.
 #'
 #' @param X An nxd matrix with samples as rows and features as columns.
-#' @param y A length-n vector of 0s and 1s indicating true sample classes.
+#' @param y A length-n vector of -1s and 1s indicating true sample classes.
 #' @param C Regularisation parameter.
-#' @param ckernel Kernel function to be used.
-#' @param ... Additional parameters passed to ckernel.
+#' @param ckernel Kernel function with hyperparamters set
 #'
 #' @importFrom quadprog solve.QP
 #' @export
-kernel_svm <- function(X, y, C, ckernel, ...){
+kernel_svm <- function(X, y, C, ckernel){
   #we want to find the values of lambda which minimise (lambda+y)^T * K * (lambda+y) - <lambda, 1>
   #subject to lambda_i >= 0 and sum lambda_i y_i = 0
 
   #to use quadprog we need to rewrite the minimisation in the form 0.5 * lambda^T * D * lambda - d^T lambda
   #so D= yy^T K
   n <- nrow(X)
-  K <- calc_K(X, ckernel, ...)
+  K <- calc_K(X, ckernel)
   D <- outer(y, y) * K
   #using a trick to perturb D by a small amount on the diagonal to ensure its positive definite
   D <- D + 1e-5 * diag(n)
@@ -119,7 +98,7 @@ kernel_svm <- function(X, y, C, ckernel, ...){
   lambda <- sol$solution
 
   #find support vectors
-  svs <- which(lambda > 1e-4)
+  svs <- which(lambda > 0.01)
 
   #could have a check if too many support vectors (likely means overfitting and predictions will be slow)
 
@@ -129,7 +108,7 @@ kernel_svm <- function(X, y, C, ckernel, ...){
   val <- function(x_i){
     v <- 0
     for(j in svs){
-      v <- v + lambda[j] * y[j] * ckernel(x_i, X[j,], ...)
+      v <- v + lambda[j] * y[j] * ckernel(x_i, X[j,])
     }
     return(v)
   }
@@ -151,41 +130,3 @@ kernel_svm <- function(X, y, C, ckernel, ...){
   }
 }
 
-
-## Test the kernel svm on a non linear dataset
-# #Generate data
-# n <- 500
-# c1_x1 <- rnorm(n/2, 0, 1.2)
-# c1_x2 <- rnorm(n/2, 0, 1.2)
-#
-# c2_x1 <- seq(-4, 4, length.out = n/4)
-# c2_x2 <- sqrt(16 - c2_x1^2)
-# c2_x1 <- c(c2_x1, c2_x1) + rnorm(n/2, 0, 0.8)
-# c2_x2 <- c(c2_x2, -c2_x2) + rnorm(n/2, 0, 0.8)
-#
-# X <- matrix(c(c1_x1, c2_x1, c1_x2, c2_x2), nrow=n)
-# y <- c(rep(-1, n/2), rep(1, n/2))
-#
-# #shuffle
-# ind <- sample(1:n, n)
-# y <- y[ind]
-# X <- X[ind, ]
-# plot(X[,1], X[,2], col=as.factor(y), pch=16) #true class
-#
-# #polynomial kernel
-# model <- kernel_svm(X, y, C=1, ckernel=poly_kernel, b=3)
-# y_pred <- model(X)
-# plot(X[,1], X[,2], col=as.factor(y_pred), pch=16) #predicted class
-# #RBF kernel
-# sigma <- avg_median_pairwise_distance(X)
-# model <- kernel_svm(X, y, C=1, ckernel=rbf_kernel, sigma=sigma)
-# y_pred <- model(X)
-# plot(X[,1], X[,2], col=as.factor(y_pred), pch=16)
-# #linear kernel
-# model <- kernel_svm(X, y, C=1, ckernel=lin_kernel)
-# y_pred <- model(X)
-# plot(X[,1], X[,2], col=as.factor(y_pred), pch=16)
-# #trigonometric kernel
-# model <- kernel_svm(X, y, C=1, ckernel=trig_kernel, b=6)
-# y_pred <- model(X)
-# plot(X[,1], X[,2], col=as.factor(y_pred), pch=16)
