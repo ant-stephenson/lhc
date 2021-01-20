@@ -1,16 +1,16 @@
-%latex.default(output, file = path_join(c(dirname(getwd()), "doc/results_table.tex")),     caption = "Results table of the top 5 experiments")%
+%latex.default(output, file = path_join(c(dirname(getwd()), "doc/results_table.tex")),     caption = "Results table of the top 5 experiments", label = "table:results")%
 \begin{table}[!tbp]
-\caption{Results table of the top 5 experiments\label{output}} 
+\caption{Results table of the top 5 experiments\label{table:results}} 
 \begin{center}
 \begin{tabular}{lrrrrrrrrr}
 \hline\hline
 \multicolumn{1}{l}{output}&\multicolumn{1}{c}{$n_{rbf}$}&\multicolumn{1}{c}{lambda}&\multicolumn{1}{c}{poly}&\multicolumn{1}{c}{auc}&\multicolumn{1}{c}{$mad_{auc}$}&\multicolumn{1}{c}{ams}&\multicolumn{1}{c}{$mad_{ams}$}&\multicolumn{1}{c}{$scaled_{auc}$}&\multicolumn{1}{c}{$scaled_{ams}$}\tabularnewline
 \hline
-1&$2$&$0.000$&$3$&$0.81$&$0.063$&$1.907$&$0.855$&$12.886$&$2.230$\tabularnewline
-2&$1$&$2.154$&$3$&$0.81$&$0.061$&$1.898$&$0.856$&$13.180$&$2.217$\tabularnewline
-3&$2$&$2.154$&$3$&$0.81$&$0.061$&$1.898$&$0.856$&$13.180$&$2.217$\tabularnewline
-4&$3$&$2.154$&$3$&$0.81$&$0.061$&$1.898$&$0.856$&$13.180$&$2.217$\tabularnewline
-5&$4$&$2.154$&$3$&$0.81$&$0.061$&$1.898$&$0.856$&$13.180$&$2.217$\tabularnewline
+1&$2$&$0.003$&$1$&$0.82$&$0.050$&$1.942$&$0.941$&$16.444$&$2.063$\tabularnewline
+2&$0$&$0.464$&$1$&$0.82$&$0.052$&$1.940$&$0.909$&$15.763$&$2.134$\tabularnewline
+3&$0$&$3.162$&$1$&$0.82$&$0.054$&$1.939$&$0.904$&$15.228$&$2.143$\tabularnewline
+4&$3$&$0.010$&$1$&$0.82$&$0.050$&$1.938$&$0.909$&$16.297$&$2.133$\tabularnewline
+5&$0$&$0.215$&$1$&$0.82$&$0.054$&$1.937$&$0.909$&$15.295$&$2.131$\tabularnewline
 \hline
 \end{tabular}\end{center}
 \end{table}
