@@ -427,13 +427,14 @@ sprintf("Validation set AMS = %.2f", mean(result_amsv))
 library(Hmisc)
 
 # keep top 5 rows
-output <- matrix(c(mean(auc), mad(auc), mean(result_ams), mad_ams, mean(aucv), NA, mean(result_amsv), NA), nrow=2)
+output <- t(matrix(c(mean(auc), mad(auc), mean(result_ams), mad_ams, mean(aucv), NA, mean(result_amsv), NA), nrow=4))
 colnames(output) <- c("AUC", "mad(AUC)", "AMS", "mad(AMS)")
-output <- data.frame(output, row.names=c("CV OOS", "Test set"))
+output <- data.frame(output)
 output <- mutate_if(output, is.numeric, round, digits=3)
+row.names(output) <- c("CV OOS", "Test set")
 
 # Generate LaTeX table
-latex(output, file=path_join(c(dirname(getwd()), "doc/final_results_table.tex")), caption=sprintf("Results for $\\lambda=%.2g$, $G=%i$, $n_{rbf}=%i$, K=%i on training set ('%s') and validation set ('%s')", lambda, G, n_rbf, K, train_label, val_label), label="table:final_results")
+latex(output, file=path_join(c(dirname(getwd()), "doc/final_results_table.tex")), caption=sprintf("Results for $\\lambda=%.2g$, $G=%i$, $n_{rbf}=%i$, K=%i on training set (`%s') and validation set (`%s')", lambda, G, n_rbf, K, train_label, val_label), label="table:final_results")
 ```
 
 Save the output results to a .csv file.
