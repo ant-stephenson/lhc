@@ -135,11 +135,12 @@ Since we have a free parameter $c$ that determines the optimal value $\lambda^\s
 
 \begin{algorithm}[H]
     1. Initialise parameters; $\gamma, \tau$ \\
-    2. Set largest stepsize $s_{max}=1$ \\
-    3. \While{$f(x+\Delta x) > f(x) + \gamma s \nabla f^T\Delta x$} {
+    2. Set largest stepsize $s_{max}\leftarrow 1$ \\
+    3. Set $s \leftarrow s_{max}$ \\
+    4. \While{$f(x+\Delta x) > f(x) + \gamma s \nabla f^T\Delta x$} {
         Update $s\leftarrow \tau s$ \\
     }
-    4. Return $s$
+    5. Return $s$
     \caption{Backtracking linesearch}
 \end{algorithm}
 \label{algo:line}
