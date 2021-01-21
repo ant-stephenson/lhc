@@ -1,0 +1,13 @@
+%latex.default(output, file = path_join(c(dirname(getwd()), "doc/final_results_table.tex")),     caption = sprintf("Results for $\\lambda=%.2g$, $G=%i$, $n_{rbf}=%i$, K=%i on training set ('%s') and validation set ('%s')",         lambda, G, n_rbf, K, train_label, val_label), label = "table:final_results")%
+\begin{table}[!tbp]
+\caption{Results for $\lambda=0.0001$, $G=3$, $n_{rbf}=2$, K=10 on training set ('t') and validation set ('v')\label{table:final_results}} 
+\begin{center}
+\begin{tabular}{lrrrr}
+\hline\hline
+\multicolumn{1}{l}{output}&\multicolumn{1}{c}{AUC}&\multicolumn{1}{c}{mad.AUC.}&\multicolumn{1}{c}{AMS}&\multicolumn{1}{c}{mad.AMS.}\tabularnewline
+\hline
+1&$0.871$&$0.008$&$3.056$&$0.092$\tabularnewline
+2&$0.847$&$$&$2.207$&$$\tabularnewline
+\hline
+\end{tabular}\end{center}
+\end{table}

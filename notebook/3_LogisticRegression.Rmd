@@ -423,6 +423,18 @@ sprintf("CV OOS AMS = %.2f ± %.1f", mean(result_ams), mad_ams)
 sprintf("Validation set AUC = %.2f", mean(aucv))
 sprintf("Validation set AMS = %.2f", mean(result_amsv))
 ```
+```{r latex out}
+library(Hmisc)
+
+# keep top 5 rows
+output <- matrix(c(mean(auc), mad(auc), mean(result_ams), mad_ams, mean(aucv), NA, mean(result_amsv), NA), nrow=2)
+colnames(output) <- c("AUC", "mad(AUC)", "AMS", "mad(AMS)")
+output <- data.frame(output, row.names=c("CV OOS", "Test set"))
+output <- mutate_if(output, is.numeric, round, digits=3)
+
+# Generate LaTeX table
+latex(output, file=path_join(c(dirname(getwd()), "doc/final_results_table.tex")), caption=sprintf("Results for $\\lambda=%.2g$, $G=%i$, $n_{rbf}=%i$, K=%i on training set ('%s') and validation set ('%s')", lambda, G, n_rbf, K, train_label, val_label), label="table:final_results")
+```
 
 Save the output results to a .csv file.
 ```{r record to file}

@@ -195,16 +195,8 @@ To actually calculate AMS scores, we need to convert out probabilistic outputs i
 }
 with jet groups $g$, folds $k$ and threshold for group $g$, $\theta_g$ and a function $\rm{ams}(g, k, \theta_g)$ which computes the AMS for a particular group-fold combination given its threshold.
 
-Using the model that ranked the best in terms of scaled AMS, we get the following results on the cross-validated out-of-sample performance for the training set and the hold-out test set:
-\newline
-Results for $\lambda=0.0001$, $G=3$, $n_{rbf}=2$, $K=10$ on training set (`t') and validation set (`v'):
-\begin{description}
-    \centering
-    \item[CV OOS AUC:] $0.87 \pm 0.0$
-    \item[CV OOS AMS:] $3.07 \pm 0.2$
-    \item[Test set AUC:] $0.85$
-    \item[Test set AMS:] $2.21$
-\end{description} 
+Using the model that ranked the best in terms of scaled AMS, we get the following results on the cross-validated out-of-sample performance for the training set and the hold-out test set are in table~\ref{table:final_results}
+\input{final_results_table.tex}
 where the ``error" term here shows the average mean absolute deviation per group across folds. 
 
 Clearly the result for the test set is significantly worse than that for the 10-fold out-of-sample measure. A possible explanation can be found by looking at the AMS threshold curves for the two datasets for this model. For the group corresponding to 0 jets, the threshold for the maximum AMS is substantially lower than what we saw in the training set at 0.2 compared to 0.6. The other two jet categories have an optimal threshold of 0.5 in the test set, versus 0.4 and 0.6 in the training set. 
