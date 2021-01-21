@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(ggplot2)
 library(dplyr)
 library(fs)
+library(purrr)
 library(lhc)
 ```
 
@@ -74,44 +75,51 @@ fig_dir <- path_join(c(dirname(getwd()), "doc/figs/"))
 
 set_filepath <- function(filename) path_join(c(fig_dir, sprintf("%s.pdf", filename)))
 
-# function to wrap figure saving
-save_fig <- function(plot_func, filepath, filetype=pdf) {
-  filetype(file=filepath)
-  plot_func()
-  dev.off()
-}
-
 # plot AUC and AMS vs regularisation parameter lambda for different numbers of RBF centroids, for no polynomial transformations added
 filt0 <- exp_data[, "poly"]==1
+save_fig(partial(plot_metric, exp_data, "lambda", "auc", "n_rbf", filt0, log="x"), set_filepath("auc-lambda-by-nrbf-poly=1"))
 plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
+save_fig(partial(plot_metric, exp_data, "lambda", "ams", "n_rbf", filt0, log="x"), set_filepath("ams-lambda-by-nrbf-poly=1"))
 plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
 
 # plot AUC and AMS vs regularisation parameter lambda for different numbers of RBF centroids, for second order polynomial transformations added
 filt0 <- exp_data[, "poly"]==2
+save_fig(partial(plot_metric, exp_data, "lambda", "auc", "n_rbf", filt0, log="x"), set_filepath("auc-lambda-by-nrbf-poly=2"))
 plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
+save_fig(partial(plot_metric, exp_data, "lambda", "ams", "n_rbf", filt0, log="x"), set_filepath("ams-lambda-by-nrbf-poly=2"))
 plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
 
 # plot AUC and AMS vs regularisation parameter lambda for different numbers of RBF centroids, for 2nd and 3rd order polynomial transformations added
 filt0 <- exp_data[, "poly"]==3
+save_fig(partial(plot_metric, exp_data, "lambda", "auc", "n_rbf", filt0, log="x"), set_filepath("auc-lambda-by-nrbf-poly=3"))
 plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
+save_fig(partial(plot_metric, exp_data, "lambda", "ams", "n_rbf", filt0, log="x"), set_filepath("ams-lambda-by-nrbf-poly=3"))
 plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
 
 # plot AUC and AMS vs regularisation parameter lambda for different numbers of orders of polynomial transformations, for no added RBF centroids
 filt0 <- exp_data[, "n_rbf"]==0
+save_fig(partial(plot_metric, exp_data, "lambda", "auc", "poly", filt0, log="x"), set_filepath("auc-lambda-by-poly-nrbf=0"))
 plot_metric(exp_data, "lambda", "auc", "poly", filt0, log="x")
+save_fig(partial(plot_metric, exp_data, "lambda", "ams", "poly", filt0, log="x"), set_filepath("ams-lambda-by-poly-nrbf=0"))
 plot_metric(exp_data, "lambda", "ams", "poly", filt0, log="x")
 
 # plot AUC and AMS (scaled by respective mean absolute deviation) vs regularisation parameter lambda for different numbers of orders of polynomial transformations, for no added RBF centroids
 filt0 <- exp_data[, "n_rbf"]==0
+save_fig(partial(plot_metric, exp_data, "lambda", "scaled.auc", "poly", filt0, log="x"), set_filepath("scaledauc-lambda-by-poly-nrbf=0"))
 plot_metric(exp_data, "lambda", "scaled.auc", "poly", filt0, log="x")
+save_fig(partial(plot_metric, exp_data, "lambda", "scaled.ams", "poly", filt0, log="x"), set_filepath("scaledams-lambda-by-poly-nrbf=0"))
 plot_metric(exp_data, "lambda", "scaled.ams", "poly", filt0, log="x")
 
 # plot boxplots of scaled AUC and AMS for each polynomial transformation
+save_fig(partial(boxplot, scaled.auc~poly, data=exp_data, main="Scaled AUC for each order polynomial transformation"), set_filepath("boxplot-scaledauc-by-poly"))
 boxplot(scaled.auc~poly, data=exp_data, main="Scaled AUC for each order polynomial transformation")
+save_fig(partial(boxplot, scaled.ams~poly, data=exp_data, main="Scaled AMS for each order polynomial transformation"), set_filepath("boxplot-scaledams-by-poly"))
 boxplot(scaled.ams~poly, data=exp_data, main="Scaled AMS for each order polynomial transformation")
 
 # plot boxplots of scaled AUC and AMS for additional RBF centroid
+save_fig(partial(boxplot, scaled.auc~n_rbf, data=exp_data, main="Scaled AUC for each additional RBF centroid"), set_filepath("boxplot-scaledauc-by-nrbf"))
 boxplot(scaled.auc~n_rbf, data=exp_data, main="AUC for each additional RBF centroid")
+save_fig(partial(boxplot, scaled.ams~n_rbf, data=exp_data, main="Scaled AMS for each additional RBF centroid"), set_filepath("boxplot-scaledams-by-nrbf"))
 boxplot(scaled.ams~n_rbf, data=exp_data, main="AMS for each additional centroid feature")
 ```
 
@@ -124,7 +132,7 @@ library(Hmisc)
 
 # sort/filter data to only retain what we want to record and round numerical values to 3d.p for readibility
 output <- exp_data[, c("n_rbf", "lambda", "poly", "auc", "mad.auc.", "ams", "mad.ams.", "scaled.auc", "scaled.ams")] %>%
-  arrange(desc(ams), desc(auc)) %>%
+  arrange(desc(scaled.ams), desc(scaled.auc)) %>%
   mutate_if(is.numeric, round, digits=3)
 
 # keep top 5 rows

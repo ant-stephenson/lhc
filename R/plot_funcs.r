@@ -151,3 +151,14 @@ plot_amss <- function(amss, title="AMS data", min.max=TRUE, ...){
   }
   legend=legend("bottomleft", legend=1:n, fill=colours)
 }
+
+#' function to wrap figure saving
+#' @param plot_func partially called function of no arguments to generate plot
+#' @param filepath string file path to save to
+#' @param filetype type to save as (function name)
+#' @export
+save_fig <- function(plot_func, filepath, filetype=pdf) {
+  filetype(file=filepath)
+  plot_func()
+  dev.off() -> .
+}
