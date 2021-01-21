@@ -170,7 +170,7 @@ A few experiments over different models (varying parameters including $n_{rbf}$ 
 \subsection{Model Selection}
 To finally choose our best performing model, we needed to define the criterion with which we want to judge their success. For each experiment, we recorded both the average and mean absolute deviation of the AUC and AMS. After some consideration, we concluded that since our goal was ultimately to maximise AMS, that ought to form the primary benchmark, although experimental results show a high degree of variability between folds. As a result, we opted to scale the AMS measurements by the mean absolute deviation, to try and optimise for the most consistently effective model. The top 5 experiments according to this metric are shown in table~\ref{table:results}. 
 
-\input{results_table_scaled}
+\input{results_table}
 
 To try and determine how reliable our performance assessment might be, we plotted some figures for both performance measures (AUC and AMS) against varying regularisation, numbers of RBF centroids and order of polynomials. Restricting this summary analysis to our preferred metric, the scaled AMS, we see a noisy but somewhat consistent result in the boxplots in figure~\ref{fig:boxes}. The results for $n_{rbf}$ are particularly unclear, with a high degree of variability.
 
@@ -189,7 +189,11 @@ To try and determine how reliable our performance assessment might be, we plotte
 \end{figure}
 
 \subsection{Predictions}
-To actually calculate AMS scores, we need to convert out probabilistic outputs into binary labels which means we need to pick a decision rule, i.e. a threshold over which we assign a label 1 (or $s$) vs 0 (or $b$).
+To actually calculate AMS scores, we need to convert out probabilistic outputs into binary labels which means we need to pick a decision rule, i.e. a threshold over which we assign a label 1 (or $s$) vs 0 (or $b$). Since we have a different model per jet group, we choose a different optimal threshold per model type and calculate our overall result by computing the average AMS over each group (applying its threshold) and averaging the results. Restating the same thing in more mathematical notation, we compute 
+\eq{
+    \langle \rm{AMS} \rangle &= \frac{1}{G}\sum_{g=1}^G\frac{1}{K}\sum_{k=1}^K \rm{ams}(g, k, \theta_g)
+}
+with jet groups $g$, folds $k$ and threshold for group $g$, $\theta_g$ and a function $\rm{ams}(g, k, \theta_g)$ which computes the AMS for a particular group-fold combination given its threshold.
 
 Using the model that ranked the best in terms of scaled AMS, we get the following results on the cross-validated out-of-sample performance for the training set and the hold-out test set:
 \newline
@@ -201,7 +205,7 @@ Results for $\lambda=0.0001$, $G=3$, $n_{rbf}=2$, $K=10$ on training set (`t') a
     \item[Test set AUC:] $0.85$
     \item[Test set AMS:] $2.21$
 \end{description} 
-where the ``error" term here shows the mean absolute deviation across folds. This is a bit of a coarse measure of variability, since the AMS differs between the jet groups, so a preferable measure would probably have been to average the mean absolute deviation per group.
+where the ``error" term here shows the average mean absolute deviation per group across folds. 
 
 Clearly the result for the test set is significantly worse than that for the 10-fold out-of-sample measure. A possible explanation can be found by looking at the AMS threshold curves for the two datasets for this model. For the group corresponding to 0 jets, the threshold for the maximum AMS is substantially lower than what we saw in the training set at 0.2 compared to 0.6. The other two jet categories have an optimal threshold of 0.5 in the test set, versus 0.4 and 0.6 in the training set. 
 
