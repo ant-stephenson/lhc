@@ -5,10 +5,6 @@ date: "1/3/2021"
 output: pdf_document
 ---
 
-```{r setup, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-```
-
 ## Load packages
 ```{r, echo=FALSE}
 library(ggplot2)
@@ -397,11 +393,35 @@ dev.off()
 ```
 Summary results:
 ```{r print}
+get_threshold_ams <- function(ams_mat, G, K, thresholds) {
+  ams <- rep(NA, G * K)
+  for (g in 1:G) {
+    thresh_idx <- which.min(abs(ams_obj[[1]]$thresholds - thresholds[g]))
+    model_set <- ((g-1)*K+1):(g*K)
+    ams[model_set] <- ams_mat[thresh_idx, model_set]
+  }
+  return(ams)
+}
+
+get_mean_mad_ams <- function(ams, G, K) {
+  mads <- rep(NA, G)
+  for (g in 1:G) {
+    model_set <- ((g-1)*K+1):(g*K)
+    mads[g] <- mad(ams[model_set])
+  }
+  return(mean(mads))
+}
+
+result_ams <- get_threshold_ams(ams, G, K, thresholds)
+mad_ams <- get_mean_mad_ams(result_ams, G, K)
+
+result_amsv <- get_threshold_ams(amsv, G, 1, thresholds)
+
 sprintf("Results for lambda=%.2g, G=%i, n_rbf=%i, K=%i on training set ('%s') and validation set ('%s')", lambda, G, n_rbf, K, train_label, val_label)
 sprintf("CV OOS AUC = %.2f ± %.1f", mean(auc), mad(auc))
-sprintf("CV OOS AMS = %.2f ± %.1f", mean(ams), mad(ams))
-sprintf("Validation set AUC = %.2f ± %.1f", mean(aucv), mad(aucv))
-sprintf("Validation set AMS = %.2f ± %.1f", mean(amsv), mad(amsv))
+sprintf("CV OOS AMS = %.2f ± %.1f", mean(result_ams), mad_ams)
+sprintf("Validation set AUC = %.2f", mean(aucv))
+sprintf("Validation set AMS = %.2f", mean(result_amsv))
 ```
 
 Save the output results to a .csv file.
