@@ -15,6 +15,7 @@ filename <- "atlas-higgs-challenge-2014-v2.csv"
 filepath <- path_join(c(source_path, "LHC_dump", "R", filename))
 data <- import_data(filepath)
 
+# function just to loop over fitting procedure with various input parameters to faciliate running experiments over parameter space (e.g. a gridsearch)
 run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, lambda, C=1, results_label=2, iter=0, thresholds=c(0.4,0.4,0.4), poly_order=1) {
 
   ## ----training set------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -33,6 +34,7 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
   X <- reduce_features(X)
   X <- invert_angle_sign(X)
 
+ # add polynomial transformations of order poly_order to our covariates
   if (poly_order > 1) {
     X <- poly_transform(X, poly_order)
   }
@@ -51,9 +53,6 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
   # sum weights for to renormalise for AMS in partitions
   sum_w <- sum(w)
 
-  # set colours for jet groups
-  colours <- generate_colours(G)
-
   ## ----jet/missing-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   # get missing rows. separate by number of jets and presence of Higgs mass and fit separate models
   # find columns with features with any missing values for each number of jets: 0, 1, 2+ in combination with the presence (or absence) of the Higgs mass, defined by j=1,2,3, 4, 5, 6. i.e. j=1 => nj=0 & mH != -999, j=2 =>
@@ -66,12 +65,10 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
   models <- vector("list", G*K)
   rocs <- vector("list", G*K)
   ams_obj <- vector("list", G*K)
-  b <- matrix(, nrow=d, ncol=G*K)
 
   ams <- rep(NA, length=G*K)
   auc <- rep(NA, length=G*K)
 
-  par(mfrow=c(2, 3))
   for (mj in 1:G) {
     # loop over sets of jet number {0, 1, 2+} and mH presence/absence
     for (k in 1:K) {
@@ -90,14 +87,18 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
         Xtest <- X[test_row_idx, ]
       }
 
+      # use group/fold to get valid columns
       col_idx <- get_valid_cols(colnames(X), features_to_rm, mj)
 
+      # define the valid columns for this fold/group
       Xtrain <- as.matrix(Xtrain[, col_idx])
       Xtest <- as.matrix(Xtest[, col_idx])
 
+      # standardize our datasets. Use training information to standardize the test set
       Xtest <- scale_dat(Xtest, Xtrain)
       Xtrain <- scale_dat(Xtrain, Xtrain)
 
+      # get index for this model (defined order based on groups/folds)
       model_idx <- get_model_idx(mj, k, K)
 
       #fit a logistic regression model to the CV training data
@@ -109,15 +110,16 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
       #create an ROC curve object
       rocs[[model_idx]] <- ROC_curve$new(y[test_row_idx], p_hat)
 
+      # create an AMS object
       ams_obj[[model_idx]] <- AMS_data$new(y[test_row_idx], p_hat, w[test_row_idx], sum_w=sum_w)
     }
   }
 
 
-  ## ----avg auc and plot roc, error=TRUE----------------------------------------------------------------------------------------------------------------------------------------------------
+  ## ----avg auc and plot roc----------------------------------------------------------------------------------------------------------------------------------------------------
   auc <- sapply(rocs, function(x) x$calc_auc())
 
-  ## ----avg ams and plot roc, error=TRUE----------------------------------------------------------------------------------------------------------------------------------------------------
+  ## ----avg ams and plot roc----------------------------------------------------------------------------------------------------------------------------------------------------
   ams <- sapply(ams_obj, function(x) x$calc_ams())
 
   ## ----print-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
