@@ -89,6 +89,9 @@ To compute the AMS for a given model output $p \in [0,1]$, we also need to defin
 \subsection{Logistic Regression}
 We chose to use a logistic regression as a baseline model to try and solve our classification task. The logic for this was two-fold; we would have a robust, flexible model to compare other modelling approaches to, as well as retaining the capacity to augment it with additional features which could include other models as sub-models within the logistic regression model. 
 
+\subsubsection{Implementation}
+We implemented our logistic regression model by defining an R class with a standard interface (to enable polymorphism) and an associated fitting function. This function made use of Newton's method (\ref{algo:newton}) with a backtracking linesearch (\ref{algo:line}) in order to calculate maximum likelihood estimates for our model coefficients, $\betav$. \ref{appendix:newton_lr} show's the full calculations of the gradient and Hessian of the logistic likelihood function required to implement Newton's method.
+
 \subsection{SVM}
 
 \subsection{Feature Engineering}
