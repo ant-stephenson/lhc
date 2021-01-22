@@ -155,27 +155,6 @@ sum_w <- sum(w)
 colours <- generate_colours(G)
 ```
 
-<!-- Take a look at how signal/background events are distributed in terms of jet groups and similarly the weights associated with them. -->
-<!-- **THIS SHOULD GO IN EXPLORATORY DATA ANALYSIS** -->
-```{r check weight distributions, eval=FALSE}
-w_ratio <- function(y, w, nj, label, j) {
-  sum(w[idx_jet_cat(nj, j) & y==label])/sum(w[idx_jet_cat(nj, j)])
-}
-weight_stats <- data.frame(j=c(1,2,3),
-                           s=c(w_ratio(y,w,nj,1,1), w_ratio(y,w,nj,1,2), w_ratio(y,w,nj,1,3)), 
-                            b=c(w_ratio(y,w,nj,0,1), w_ratio(y,w,nj,0,2), w_ratio(y,w,nj,0,3)) 
-)
-weight_stats
-n_ratio <- function(y, nj, label, j) {
-  sum(y==label & idx_jet_cat(nj, j))/sum(idx_jet_cat(nj, j))
-}
-n_stats <- data.frame(j=c(1,2,3),
-                      s=c(n_ratio(y,nj,1,1), n_ratio(y,nj,1,2), n_ratio(y,nj,1,3)), 
-                      b=c(n_ratio(y,nj,0,1), n_ratio(y,nj,0,2), n_ratio(y,nj,0,3)) 
-)
-n_stats
-```
-
 Use missing data pattern to partition data.
 ```{r jet/missing}
 # get missing rows. separate by number of jets and presence of Higgs mass and fit separate models
@@ -184,26 +163,6 @@ jet_cats <- c(1:3, 1:3)
 features_to_rm <- set_features_to_rm(X, G, kI, nj)
 ```
 
-<!-- Count the number of rows of data in each category and fold, with the first column being the training set and the second being the test for each fold/category -->
-
-<!-- **THIS SHOULD GO IN EXPLORATORY DATA ANALYSIS** -->
-```{r number of rows, eval=FALSE}
-n_rows_p_partition <- matrix(, nrow=G*K, ncol=2)
-for (mj in 1:G) {
-    # loop over sets of jet number {0, 1, 2+} and mH presence/absence
-    for (k in 1:K) {
-        j <- jet_cats[mj]
-        fit_row_idx <- kI != k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
-        test_row_idx <- kI == k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
-
-        model_idx <- get_model_idx(mj, k, K)
-
-        n_rows_p_partition[model_idx, 1] <- sum(fit_row_idx)
-        n_rows_p_partition[model_idx, 2] <- sum(test_row_idx)
-    }
-}
-n_rows_p_partition
-```
 ## Run CV experiments
 Loop over jet groups and folds and fit a model for each (so $GK$ total) and then test each of these on their OOS subset, recording AUC and AMS.
 ```{r fitting}
