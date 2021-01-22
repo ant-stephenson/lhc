@@ -162,3 +162,48 @@ save_fig <- function(plot_func, filepath, filetype=pdf) {
   plot_func()
   dev.off() -> .
 }
+
+#' Density plots of variables
+#'
+#' Given a matrix plot the density of the listed variables using ggplot2 facet_wrap.
+#'
+#' If the matrix X is more than 10,000 samples, a random 10,000 samples will be selected
+#' to keep the amount of data plotted reasonable.
+#'
+#' @param X An nxd matrix with samples as rows and features as columns.
+#' @param variables Optional vector of column names to be plotted
+#' @param lables Optional vector of class labels to view distributions by class
+#'
+#' @import ggplot2
+#' @importFrom tidyr pivot_longer
+#' @export
+plot_distributions <- function(X, variables=NULL, labels=NULL){
+
+  #if labels not provided just use 1s
+  if(is.null(labels)){
+    labels <- rep(1, nrow(X))
+  }
+
+  #if X is large, take a sample
+  if(nrow(X) > 10000){
+    idx <- sample(1:nrow(X), 10000)
+    X <- X[idx,]
+    labels <- labels[idx]
+  }
+
+  #if columns specified, select just these
+  if(!is.null(variables)){
+    X <- X[, variables]
+  }
+
+  #unpivot (make a long format)
+  plot_data <- cbind(rownames(X), labels, as.data.frame(X)) %>%
+    pivot_longer(cols=c(-1, -2), values_to = "Value", names_to="Variable")
+
+  #create plot
+  ggplot(plot_data, aes(Value, colour=labels)) +
+    geom_density() +
+    theme_minimal() +
+    theme(legend.position = "none") +
+    facet_wrap(vars(Variable), scales="free")
+}
