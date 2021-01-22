@@ -5,7 +5,7 @@ date: "1/18/2021"
 output: pdf_document
 ---
 
-```{r import, echo=FALSE}
+```{r import4, echo=FALSE, warning=FALSE, message=FALSE}
 library(ggplot2)
 library(dplyr)
 library(fs)
@@ -20,6 +20,11 @@ library(lhc)
 ```{r import}
 filepath <- path_join(c(dirname(getwd()), "/output/results_experiments5.csv"))
 exp_data <- read.csv(filepath)
+
+# bool to choose whether to save outputs
+if (!("do_save_outputs" %in% ls())) {
+  do_save_outputs <- FALSE
+}
 ```
 
 Remove some columns that are not important for this analysis and average over any duplicated experiments:
@@ -53,7 +58,7 @@ plot_metric <- function(data, xlabel, ylabel, loop_label=NULL, filt0=TRUE, ...) 
   ylim <- c(min(data[filt0, ylabel]), max(data[filt0, ylabel]))
   
   filt <- filt_func(init_idx)
-  plot(data[filt, xlabel], data[filt, ylabel], col=colours[1], type="lin", xlab=xlabel, ylab=ylabel, main=sprintf("%s vs %s for different %s", ylabel, xlabel, loop_label), ylim=ylim, ...)
+  plot(data[filt, xlabel], data[filt, ylabel], col=colours[1], type="l", xlab=xlabel, ylab=ylabel, main=sprintf("%s vs %s for different %s", ylabel, xlabel, loop_label), ylim=ylim, ...)
   for (i in 1:ntrials) {
     nr <- i + init_idx
     filt <- filt_func(nr)
@@ -75,63 +80,77 @@ set_filepath <- function(filename) path_join(c(fig_dir, sprintf("%s.pdf", filena
 
 # plot AUC and AMS vs regularisation parameter lambda for different numbers of RBF centroids, for no polynomial transformations added
 filt0 <- exp_data[, "poly"]==1
-save_fig(partial(plot_metric, exp_data, "lambda", "auc", "n_rbf", filt0, log="x"), 
-         set_filepath("auc-lambda-by-nrbf-poly=1"))
+if (do_save_outputs) {
+  save_fig(partial(plot_metric, exp_data, "lambda", "auc", "n_rbf", filt0, log="x"), 
+           set_filepath("auc-lambda-by-nrbf-poly=1"))
+  save_fig(partial(plot_metric, exp_data, "lambda", "ams", "n_rbf", filt0, log="x"), 
+           set_filepath("ams-lambda-by-nrbf-poly=1"))
+}
 plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
-save_fig(partial(plot_metric, exp_data, "lambda", "ams", "n_rbf", filt0, log="x"), 
-         set_filepath("ams-lambda-by-nrbf-poly=1"))
 plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
 
 # plot AUC and AMS vs regularisation parameter lambda for different numbers of RBF centroids, for second order polynomial transformations added
 filt0 <- exp_data[, "poly"]==2
-save_fig(partial(plot_metric, exp_data, "lambda", "auc", "n_rbf", filt0, log="x"), 
-         set_filepath("auc-lambda-by-nrbf-poly=2"))
+if (do_save_outputs) {
+  save_fig(partial(plot_metric, exp_data, "lambda", "auc", "n_rbf", filt0, log="x"), 
+           set_filepath("auc-lambda-by-nrbf-poly=2"))
+  save_fig(partial(plot_metric, exp_data, "lambda", "ams", "n_rbf", filt0, log="x"), 
+           set_filepath("ams-lambda-by-nrbf-poly=2"))
+}
 plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
-save_fig(partial(plot_metric, exp_data, "lambda", "ams", "n_rbf", filt0, log="x"), 
-         set_filepath("ams-lambda-by-nrbf-poly=2"))
 plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
 
 # plot AUC and AMS vs regularisation parameter lambda for different numbers of RBF centroids, for 2nd and 3rd order polynomial transformations added
 filt0 <- exp_data[, "poly"]==3
-save_fig(partial(plot_metric, exp_data, "lambda", "auc", "n_rbf", filt0, log="x"), 
-         set_filepath("auc-lambda-by-nrbf-poly=3"))
+if (do_save_outputs) {
+  save_fig(partial(plot_metric, exp_data, "lambda", "auc", "n_rbf", filt0, log="x"), 
+           set_filepath("auc-lambda-by-nrbf-poly=3"))
+  save_fig(partial(plot_metric, exp_data, "lambda", "ams", "n_rbf", filt0, log="x"), 
+           set_filepath("ams-lambda-by-nrbf-poly=3"))
+}
 plot_metric(exp_data, "lambda", "auc", "n_rbf", filt0, log="x")
-save_fig(partial(plot_metric, exp_data, "lambda", "ams", "n_rbf", filt0, log="x"), 
-         set_filepath("ams-lambda-by-nrbf-poly=3"))
 plot_metric(exp_data, "lambda", "ams", "n_rbf", filt0, log="x")
 
 # plot AUC and AMS vs regularisation parameter lambda for different numbers of orders of polynomial transformations, for no added RBF centroids
 filt0 <- exp_data[, "n_rbf"]==0
-save_fig(partial(plot_metric, exp_data, "lambda", "auc", "poly", filt0, log="x"), 
-         set_filepath("auc-lambda-by-poly-nrbf=0"))
+if (do_save_outputs) {
+  save_fig(partial(plot_metric, exp_data, "lambda", "auc", "poly", filt0, log="x"), 
+           set_filepath("auc-lambda-by-poly-nrbf=0"))
+  save_fig(partial(plot_metric, exp_data, "lambda", "ams", "poly", filt0, log="x"), 
+           set_filepath("ams-lambda-by-poly-nrbf=0"))
+}
 plot_metric(exp_data, "lambda", "auc", "poly", filt0, log="x")
-save_fig(partial(plot_metric, exp_data, "lambda", "ams", "poly", filt0, log="x"), 
-         set_filepath("ams-lambda-by-poly-nrbf=0"))
 plot_metric(exp_data, "lambda", "ams", "poly", filt0, log="x")
 
 # plot AUC and AMS (scaled by respective mean absolute deviation) vs regularisation parameter lambda for different numbers of orders of polynomial transformations, for no added RBF centroids
 filt0 <- exp_data[, "n_rbf"]==0
-save_fig(partial(plot_metric, exp_data, "lambda", "scaled.auc", "poly", filt0, log="x"), 
-         set_filepath("scaledauc-lambda-by-poly-nrbf=0"))
+if (do_save_outputs) {
+  save_fig(partial(plot_metric, exp_data, "lambda", "scaled.auc", "poly", filt0, log="x"), 
+           set_filepath("scaledauc-lambda-by-poly-nrbf=0"))
+  save_fig(partial(plot_metric, exp_data, "lambda", "scaled.ams", "poly", filt0, log="x"), 
+           set_filepath("scaledams-lambda-by-poly-nrbf=0"))
+}
 plot_metric(exp_data, "lambda", "scaled.auc", "poly", filt0, log="x")
-save_fig(partial(plot_metric, exp_data, "lambda", "scaled.ams", "poly", filt0, log="x"), 
-         set_filepath("scaledams-lambda-by-poly-nrbf=0"))
 plot_metric(exp_data, "lambda", "scaled.ams", "poly", filt0, log="x")
 
 # plot boxplots of scaled AUC and AMS for each polynomial transformation
-save_fig(partial(boxplot, scaled.auc~poly, data=exp_data, main="Scaled AUC for each order polynomial transformation"), 
-         set_filepath("boxplot-scaledauc-by-poly"))
+if (do_save_outputs) {
+  save_fig(partial(boxplot, scaled.auc~poly, data=exp_data, main="Scaled AUC for each order polynomial transformation"), 
+           set_filepath("boxplot-scaledauc-by-poly"))
+  save_fig(partial(boxplot, scaled.ams~poly, data=exp_data, main="Scaled AMS for each order polynomial transformation"), 
+           set_filepath("boxplot-scaledams-by-poly"))
+}
 boxplot(scaled.auc~poly, data=exp_data, main="Scaled AUC for each order polynomial transformation")
-save_fig(partial(boxplot, scaled.ams~poly, data=exp_data, main="Scaled AMS for each order polynomial transformation"), 
-         set_filepath("boxplot-scaledams-by-poly"))
 boxplot(scaled.ams~poly, data=exp_data, main="Scaled AMS for each order polynomial transformation")
 
 # plot boxplots of scaled AUC and AMS for additional RBF centroid
-save_fig(partial(boxplot, scaled.auc~n_rbf, data=exp_data, main="Scaled AUC for each additional RBF centroid"), 
-         set_filepath("boxplot-scaledauc-by-nrbf"))
+if (do_save_outputs) {
+  save_fig(partial(boxplot, scaled.auc~n_rbf, data=exp_data, main="Scaled AUC for each additional RBF centroid"), 
+           set_filepath("boxplot-scaledauc-by-nrbf"))
+  save_fig(partial(boxplot, scaled.ams~n_rbf, data=exp_data, main="Scaled AMS for each additional RBF centroid"), 
+           set_filepath("boxplot-scaledams-by-nrbf"))
+}
 boxplot(scaled.auc~n_rbf, data=exp_data, main="Scaled AUC for each additional RBF centroid")
-save_fig(partial(boxplot, scaled.ams~n_rbf, data=exp_data, main="Scaled AMS for each additional RBF centroid"), 
-         set_filepath("boxplot-scaledams-by-nrbf"))
 boxplot(scaled.ams~n_rbf, data=exp_data, main="Scaled AMS for each additional centroid feature")
 ```
 ## Record results
@@ -139,7 +158,7 @@ boxplot(scaled.ams~n_rbf, data=exp_data, main="Scaled AMS for each additional ce
 Print results as a LaTeX table that can be imported into a report easily. Not too surprisingly we see different models appear at the top of our list depending on how we decide to choose the best model. Since our goal is ultimately to maximise AMS, it makes sense that this (rather than AUC) should be the metric we choose, despite the higher variance it displays. To try and mitigate this variance, we can  choose to sort by a scaled version of AMS, where we take the mean absolute deviation across the folds and scale by that, to try and optimise for the best result with the least variation and therefore hopefully the best generalisation.
 
 Surprisingly, the top model appears to have the following set of parameters: $n_{rbf}=2$, $\lambda = 1e-4$ and the inclusion of upto 3rd order polynomial terms.
-```{r latex output}
+```{r latex output, warning=FALSE, message=FALSE}
 library(Hmisc)
 #scaled <- head(arrange(exp_data, scaled_ams, scaled_auc))
 
@@ -157,5 +176,9 @@ colnames(output) <- sub("(\\w+)\\.(\\w+)\\.?", "\\$\\1_\\{\\2\\}\\$", colnames(o
 colnames(output) <- sub("n\\_rbf", "\\$n_{rbf}\\$", colnames(output))
 
 # Generate LaTeX table
-latex(output, file=path_join(c(dirname(getwd()), "doc/results_table.tex")), caption="Results table of the top 5 experiments", label="table:results")
+if (do_save_outputs) {
+  latex(output, file=path_join(c(dirname(getwd()), "doc/results_table.tex")), caption="Results table of the top 5 experiments", label="table:results")
+}
 ```
+\input{../doc/results_table}
+
