@@ -176,6 +176,7 @@ save_fig <- function(plot_func, filepath, filetype=pdf) {
 #'
 #' @import ggplot2
 #' @importFrom tidyr pivot_longer
+#' @export
 plot_distributions <- function(X, variables=NULL, labels=NULL){
 
   #if labels not provided just use 1s
