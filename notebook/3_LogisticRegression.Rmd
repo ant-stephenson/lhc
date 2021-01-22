@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ## Load packages
-```{r, echo=FALSE}
+```{r import3, echo=FALSE, warning=FALSE, message=FALSE}
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -57,8 +57,9 @@ val_label <- c("v")
 result_label <- "test_private_leaderboard"
 
 # bool to choose whether to save outputs
-do_save_outputs <- TRUE
-
+if (!("do_save_outputs" %in% ls())) {
+  do_save_outputs <- TRUE
+}
 # dir to save figures
 fig_dir <- path_join(c(dirname(getwd()), "doc/figs/"))
 ```
@@ -439,7 +440,7 @@ sprintf("Validation set AUC = %.2f", mean(aucv))
 sprintf("Validation set AMS = %.2f", mean(result_amsv))
 ```
 Save final results to a LaTeX table.
-```{r latex out}
+```{r latex out, warning=FALSE, message=FALSE}
 library(Hmisc)
 
 # keep top 5 rows
@@ -451,15 +452,16 @@ row.names(output) <- c("CV OOS", "Test set")
 
 # Generate LaTeX table
 if (do_save_outputs) {
-  latex(output, file=path_join(c(dirname(getwd()), "doc/final_results_table.tex")), caption=sprintf("Results for $\\lambda=%.2g$, $G=%i$, $n_{rbf}=%i$, K=%i on training set (`%s') and validation set (`%s')", lambda, G, n_rbf, K, train_label, val_label), label="table:final_results")
+  latex(output, file=path_join(c(dirname(getwd()), "doc/final_results_table.tex")), caption=sprintf("Results for $\\lambda=%.2g$, $G=%i$, $n_{rbf}=%i$, $b=%i$, K=%i on training set (`%s') and validation set (`%s')", lambda, G, n_rbf, poly_order, K, train_label, val_label), label="table:final_results")
 }
 ```
+\input{../doc/final_results_table}
 
-Save the output results to a .csv file.
-```{r record to file}
-result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "n_rbf"=n_rbf, "lambda"=lambda, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams), "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
-write.table(as.data.frame(result), file = sprintf("/output/results_%s.csv", result_label), append = TRUE, sep = ",",
-eol = "\n", na = "NA", dec = ".", row.names = FALSE,
-col.names = FALSE, qmethod = c("escape", "double"))
-```
+<!-- Save the output results to a .csv file. -->
+<!-- ```{r record to file} -->
+<!-- result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "n_rbf"=n_rbf, "lambda"=lambda, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams), "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv)) -->
+<!-- write.table(as.data.frame(result), file = sprintf("/output/results_%s.csv", result_label), append = TRUE, sep = ",", -->
+<!-- eol = "\n", na = "NA", dec = ".", row.names = FALSE, -->
+<!-- col.names = FALSE, qmethod = c("escape", "double")) -->
+<!-- ``` -->
 

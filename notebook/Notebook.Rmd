@@ -1,5 +1,5 @@
 ---  
-title: "Notebook"
+title: "Identifying fermionic decay signals of the Higgs boson with classification algorithms"
 author: "Georgie Mansell, Anthony Stephenson"
 date: "25/1/2021"
 output: 
@@ -10,13 +10,14 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+do_save_outputs <- FALSE
 ```
 
-```{r child = '1_DataExploration.rmd'}
-```
+# ```{r child = '1_DataExploration.rmd'}
+# ```
 
-```{r child = '2_SVM.rmd'}
-```
+<!-- ```{r child = '2_SVM.rmd'} -->
+<!-- ``` -->
 
 ```{r child = '3_LogisticRegression.rmd'}
 ```
