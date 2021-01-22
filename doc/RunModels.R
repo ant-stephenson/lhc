@@ -1,5 +1,4 @@
 
-## ---- echo=FALSE-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -10,13 +9,13 @@ library(lhc)
 
 ## ----load data---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # divide data into training kaggle set, and retain hold-out (before further cross-validation partitioning)
-source_path <- path_join(c(path_dir(path_dir(getwd()))))
+source_path <- path_join(c(path_dir(getwd())))
 filename <- "atlas-higgs-challenge-2014-v2.csv"
 filepath <- path_join(c(source_path, "LHC_dump", "R", filename))
 data <- import_data(filepath)
 
 # function just to loop over fitting procedure with various input parameters to faciliate running experiments over parameter space (e.g. a gridsearch)
-run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, lambda, C=1, results_label=2, iter=0, thresholds=c(0.4,0.4,0.4), poly_order=1) {
+run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, lambda, C=1, results_label=2, poly_order=1) {
 
   ## ----training set------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   train_idx <- get_subset_idx(data$kaggle_s, train_label)
@@ -111,7 +110,8 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
       rocs[[model_idx]] <- ROC_curve$new(y[test_row_idx], p_hat)
 
       # create an AMS object
-      ams_obj[[model_idx]] <- AMS_data$new(y[test_row_idx], p_hat, w[test_row_idx], sum_w=sum_w)
+      w_this_partition <- w[test_row_idx] * sum_w/sum(w[test_row_idx])
+      ams_obj[[model_idx]] <- AMS_data$new(y[test_row_idx], p_hat, w_this_partition)
     }
   }
 
@@ -122,21 +122,27 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
   ## ----avg ams and plot roc----------------------------------------------------------------------------------------------------------------------------------------------------
   ams <- sapply(ams_obj, function(x) x$calc_ams())
 
-  ## ----print-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  sprintf("Results for lambda=%.2g, G=%i, n_rbf=%i, K=%i on training set ('%s')", lambda, G, n_rbf, K, train_label)
-  sprintf("CV OOS AUC = %.2f ± %.1f", mean(auc), mad(auc))
-  sprintf("CV OOS AMS = %.2f ± %.1f", mean(ams), mad(ams))
+get_mean_mad_ams <- function(ams, G, K) {
+  mads <- rep(NA, G)
+  for (g in 1:G) {
+    model_set <- ((g-1)*K+1):(g*K)
+    mads[g] <- mean(apply(ams[, model_set], 1, mad))
+  }
+  return(mean(mads))
+}
+
+mad_ams <- get_mean_mad_ams(ams, G, K)
 
   ## ----record to file----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  filename <- sprintf(path_join(c(dirname(getwd()), "output/results_%s.csv")), results_label)
+  filename <- sprintf(path_join(c(getwd(), "output/results_%s.csv")), results_label)
   model_type <- class(models[[1]])[1]
   if (!file.exists(filename)){
-    result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "model_type"=model_type, "n_rbf"=n_rbf, "lambda"=lambda, "c"=C, "poly"=poly_order, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams))#, "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
+    result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "model_type"=model_type, "n_rbf"=n_rbf, "lambda"=lambda, "c"=C, "poly"=poly_order, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad_ams)#, "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
     write.table(as.data.frame(result), file = filename, append = TRUE, sep = ",",
                 eol = "\n", na = "NA", dec = ".", row.names = FALSE,
                 col.names = TRUE, qmethod = c("escape", "double"))
   } else {
-    result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "model_type"=model_type, "n_rbf"=n_rbf, "lambda"=lambda, "c" = C, "poly"=poly_order, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad(ams))#, "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
+    result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "model_type"=model_type, "n_rbf"=n_rbf, "lambda"=lambda, "c" = C, "poly"=poly_order, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad_ams)#, "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
     write.table(as.data.frame(result), file = filename, append = TRUE, sep = ",",
                 eol = "\n", na = "NA", dec = ".", row.names = FALSE,
                 col.names = FALSE, qmethod = c("escape", "double"))
@@ -153,14 +159,13 @@ val_label <- c("b")
 K <- 10
 G <- 3
 n_rbf <- 0:5
-lambda <- logspace(1e-2, 10, 10)
+lambda <- logspace(1e-4, 20, 15)
 C <- 1#logspace(1, 100, 5)
-thresholds <- c(0.6, 0.4, 0.6)
-poly_order = 1
+poly_order <- 3
 # L1 logistic regression (using CVXR)
 # rm(logistic)
 # model_init <- partial(logistic_l1_model$new, C=C)
-results_label <- "experiments4"
+results_label <- "experiments5"
 
 library(foreach)
 library(doParallel)
@@ -169,11 +174,13 @@ registerDoParallel(4)
 n_grid_2 <- length(lambda)
 
 # run them all
-foreach (i=1:length(n_rbf)) %dopar% {
-  for (ii in 1:n_grid_2) {
-    print(10*(i-1) + ii)
-    model_init <- partial(logistic_model$new, lambda=lambda[ii])
-    # model_init <- partial(logistic_l1_model$new, C=C[ii])
-    run_models(model_init, data, train_label, val_label, K, G, n_rbf[i], lambda[ii], C[ii], results_label=results_label, iter=10*(i-1) + ii, thresholds=thresholds, poly_order=poly_order)
+for (poly_order in 1:3) {
+  foreach (i=1:length(n_rbf)) %dopar% {
+    for (ii in 1:n_grid_2) {
+      print(c(poly_order, i, ii))
+      model_init <- partial(logistic_model$new, lambda=lambda[ii])
+      # model_init <- partial(logistic_l1_model$new, C=C[ii])
+      run_models(model_init, data, train_label, val_label, K, G, n_rbf[i], lambda[ii], C[ii], results_label=results_label, poly_order=poly_order)
+    }
   }
 }
