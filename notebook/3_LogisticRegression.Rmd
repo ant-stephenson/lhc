@@ -16,27 +16,31 @@ library(purrr)
 library(RColorBrewer)
 library(lhc)
 ```
+## Introduction
+We decided that running a logistic regression model would be a good, robust model to use as, at the very least, a benchmark. In an effort to include higher order features than the original dataset, we decided to implement feature augmentation in the form of polynomial transformations and RBF centroid features that we could apply easily with the use of a few parameters in the script. The hope was that we could run a series of experiments exploring the parameter space, with 10-fold cross-validation, and analyse the results to obtain a "best" model to apply to a hold-out test set.
+
+The Kaggle data is divided into various subsections, each labelled with a character:
 Kaggle sets:  ”t”:training, ”b”:public leaderboard, ”v”:private leaderboard, ”u”:unused.
+
+"t" is used for the cross-validation procedure and as a final full fitting set before testing on the "v" hold-out set. The "b" set is relatively small, so has been excluded for simplicity.
+
+From the exploratory data analysis we saw that the data can be viewed as having been generated from different underlying processes, based on the structure of the missing data. Although we considered building independent models for each of these groups, we found that some of the groups were too small to build reliable models. As a result we opted to divide only by jet number (rather than Higgs mass as well) and remove the remaining missing columns as required. This appeared to provide more robust and better performance.
+
+## Initialise script
+
 Set script parameters:
 ```{r initialise script params}
 # Regularisation (L2) parameter [global]
 lambda <- 1e-4
-
 # constraint parameter for L1 Logistic regression [global]
 C <- 1
-
 # number of jet/Higgs mass groups to build different models for
 G <- 3
-
-poly_order <- 3
-
-n_rbf <- 2
+poly_order <- 2
+n_rbf <- 3
 
 # AMS thresholds
 thresholds <- c(0.6, 0.4, 0.6)
-
-# name to use in the .csv output of results
-result_label <- "test_private_leaderboard"
 
 # choose model. Interchangeable so long as we have implemented polymorphism across the model classes so that they share a common interface. Use "partial" to call with optional parameters to enforce an interface of f(X,y)
 # L2 logistic regression
@@ -45,21 +49,21 @@ model_init <- partial(logistic_model$new, lambda=lambda)
 # Constrained logistic regression (using CVXR)
 # model_init <- partial(logistic_l1_model$new, C=C)
 
-
-# model_init <- function(X, y, w=w) {
-#   w <- w/sum(w)
-#   glm(y~. - 1, family="binomial", weights = w, data = as.data.frame(X))
-# }
-
 # pick training and validation sets
 train_label = c("t")
 val_label <- c("v")
+
+# name to use in the .csv output of results
+result_label <- "test_private_leaderboard"
+
+# bool to choose whether to save outputs
+do_save_outputs <- TRUE
 
 # dir to save figures
 fig_dir <- path_join(c(dirname(getwd()), "doc/figs/"))
 ```
 
-
+## Load data
 Load the data
 ```{r load data}
 # divide data into training kaggle set, and retain hold-out (before further cross-validation partitioning)
@@ -91,6 +95,8 @@ wv <- data$kaggle_w[val_idx]
 njv <- data$nj[val_idx]
 ```
 
+
+## Feature engineering
 Apply some feature engineering
 ```{r add features}
 # modify features
@@ -129,7 +135,7 @@ lines(d, tscale(d,b[3]), col="green")
 legend("bottomleft", legend=c("b=1", "b=2", "b=3"), fill=c("blue", "red", "green"))
 ```
 
-
+ ## 
 Compute some initial parameters
 ```{r init params}
 s <- avg_median_pairwise_distance(X)
@@ -149,9 +155,9 @@ sum_w <- sum(w)
 colours <- generate_colours(G)
 ```
 
-Take a look at how signal/background events are distributed in terms of jet groups and similarly the weights associated with them.
-**THIS SHOULD GO IN EXPLORATORY DATA ANALYSIS**
-```{r check weight distributions}
+<!-- Take a look at how signal/background events are distributed in terms of jet groups and similarly the weights associated with them. -->
+<!-- **THIS SHOULD GO IN EXPLORATORY DATA ANALYSIS** -->
+```{r check weight distributions, eval=FALSE}
 w_ratio <- function(y, w, nj, label, j) {
   sum(w[idx_jet_cat(nj, j) & y==label])/sum(w[idx_jet_cat(nj, j)])
 }
@@ -170,7 +176,7 @@ n_stats <- data.frame(j=c(1,2,3),
 n_stats
 ```
 
-Use missing data pattern to partition data
+Use missing data pattern to partition data.
 ```{r jet/missing}
 # get missing rows. separate by number of jets and presence of Higgs mass and fit separate models
 # find columns with features with any missing values for each number of jets: 0, 1, 2+ in combination with the presence (or absence) of the Higgs mass, defined by j=1,2,3, 4, 5, 6. i.e. j=1 => nj=0 & mH != -999, j=2 => 
@@ -178,21 +184,10 @@ jet_cats <- c(1:3, 1:3)
 features_to_rm <- set_features_to_rm(X, G, kI, nj)
 ```
 
-```{r test, include=FALSE}
-midx <- matrix(, nrow=G*K,ncol=2)
-  for (j in 1:G) {
-    for (k in 1:K) {
-      idx <- get_model_idx(j, k, K)
-      midx[idx,] <- inv_model_idx(idx, K)
-    }
-  }
-midx
-```
+<!-- Count the number of rows of data in each category and fold, with the first column being the training set and the second being the test for each fold/category -->
 
-Count the number of rows of data in each category and fold, with the first column being the training set and the second being the test for each fold/category
-
-**THIS SHOULD GO IN EXPLORATORY DATA ANALYSIS**
-```{r number of rows}
+<!-- **THIS SHOULD GO IN EXPLORATORY DATA ANALYSIS** -->
+```{r number of rows, eval=FALSE}
 n_rows_p_partition <- matrix(, nrow=G*K, ncol=2)
 for (mj in 1:G) {
     # loop over sets of jet number {0, 1, 2+} and mH presence/absence
@@ -209,8 +204,8 @@ for (mj in 1:G) {
 }
 n_rows_p_partition
 ```
-
-Run models
+## Run CV experiments
+Loop over jet groups and folds and fit a model for each (so $GK$ total) and then test each of these on their OOS subset, recording AUC and AMS.
 ```{r fitting}
 # loop over folds
 #create lists to hold the k models and k roc curves
@@ -271,6 +266,7 @@ for (mj in 1:G) {
     }
 }
 ```
+## Plot CV metrics
 Plot ROC curves for each fold for each group and calculate mean AUC over folds for each group.
 ```{r avg auc and plot roc, error=TRUE}
 auc <- sapply(rocs, function(x) x$calc_auc())
@@ -280,9 +276,13 @@ for(j in 1:G){
   i2 <- get_model_idx(j, K, K)
   average_auc <- mean(sapply(rocs[i1:i2], function(x) x$auc), na.rm=TRUE)
   #get a plot of the k ROC curves on the same axis
-  pdf(file=path_join(c(fig_dir, sprintf("cvoos-auc-curves%i.pdf", j))))
+  if (do_save_outputs) {
+    save_fig(partial(plot_rocs, rocs[i1:i2], title=sprintf("All training data, %i-fold CV, Average AUC %.3f", K, round(average_auc, 3))), 
+             path_join(c(fig_dir, sprintf("cvoos-auc-curves%i.pdf", j))))
+  }
+  # pdf(file=path_join(c(fig_dir, sprintf("cvoos-auc-curves%i.pdf", j))))
   plot_rocs(rocs[i1:i2], title=sprintf("All training data, %i-fold CV, Average AUC %.3f", K, round(average_auc, 3)))
-  dev.off()
+  # dev.off()
 }
 ```
 If we now also plot curves of the AMS against threshold we can get a feeling for what we should choose and how consistent they are across folds (for each model type). They are all relatively noisy, although `j=3` is comfortably the worst of the three in this respect. In an effort to account for this, and reduce the chance of overfitting the thresholds, we have taken to calculating the minimum curve over the K fold curves (by taking the minimum over folds at each threshold point) and then finding the maximum threshold for this curve. The results seem more robust, and give approximately $(0.6, 0.4, 0.6)$.
@@ -295,12 +295,17 @@ for(j in 1:G){
   i2 <- get_model_idx(j, K, K)
   # calculate the minimum AMS over the curves at each point to get an overall lower bound curve
   #get a plot of the k ROC curves on the same axis
-  pdf(file=path_join(c(fig_dir, sprintf("cvoos-ams-curves%i.pdf", j))))
+  if (do_save_outputs) {
+    save_fig(partial(plot_amss, ams_obj[i1:i2]), 
+             path_join(c(fig_dir, sprintf("cvoos-ams-curves%i.pdf", j))))
+  }
+  # pdf(file=path_join(c(fig_dir, sprintf("cvoos-ams-curves%i.pdf", j))))
   plot_amss(ams_obj[i1:i2])
-  dev.off()
+  # dev.off()
 }
 ```
 
+## Run full model
 Fit model (for each category) on whole (unfolded) dataset
 ```{r full model}
 # loop over folds
@@ -375,22 +380,32 @@ for (mj in 1:G) {
 }
 ```
 
+## Plot test metrics
 Plot ROC curves for each group on the validation set, with AUC for each.
 ```{r plot validation auc}
 . <- sapply(full_rocs, function(x) x$calc_auc())
 aucv <- sapply(full_rocs, function(x) round(x$auc, 3))
-pdf(file=path_join(c(fig_dir, "validation-auc-curves.pdf")))
+# pdf(file=path_join(c(fig_dir, "validation-auc-curves.pdf")))
 par(mar=c(4,4,4,4))
+if (do_save_outputs) {
+  save_fig(partial(plot_rocs, full_rocs, title=sprintf("All training data, %i-fold CV, AUC (%.3f, %.3f, %.3f)", K, round(aucv[1], 3), round(aucv[2], 3), round(aucv[3], 3))), 
+           path_join(c(fig_dir, "validation-auc-curves.pdf")))
+}
 plot_rocs(full_rocs, title=sprintf("All training data, %i-fold CV, AUC (%.3f, %.3f, %.3f)", K, round(aucv[1], 3), round(aucv[2], 3), round(aucv[3], 3)))
-dev.off()
+# dev.off()
 ```
 Now plotting the AMS thresholds for the validation set, we see that they differ substantially from those we saw in the training set, despite the K-fold CV. The validation set is much smaller than the full training set however, so we would expect it to be less reliable due to randomness in the data set. 
 ```{r plot validation ams thresholds}
 amsv <- sapply(amsv_obj, function(x) x$calc_ams())
-pdf(file=path_join(c(fig_dir, "validation-ams-curves.pdf")))
+if (do_save_outputs) {
+  save_fig(partial(plot_amss, amsv_obj, min.max=FALSE), 
+           path_join(c(fig_dir, "validation-ams-curves.pdf")))
+}
+# pdf(file=path_join(c(fig_dir, "validation-ams-curves.pdf")))
 plot_amss(amsv_obj, min.max=FALSE)
-dev.off()
+# dev.off()
 ```
+## Summary results
 Summary results:
 ```{r print}
 get_threshold_ams <- function(ams_mat, G, K, thresholds) {
@@ -423,18 +438,21 @@ sprintf("CV OOS AMS = %.2f ± %.1f", mean(result_ams), mad_ams)
 sprintf("Validation set AUC = %.2f", mean(aucv))
 sprintf("Validation set AMS = %.2f", mean(result_amsv))
 ```
+Save final results to a LaTeX table.
 ```{r latex out}
 library(Hmisc)
 
 # keep top 5 rows
 output <- t(matrix(c(mean(auc), mad(auc), mean(result_ams), mad_ams, mean(aucv), NA, mean(result_amsv), NA), nrow=4))
-colnames(output) <- c("AUC", "mad(AUC)", "AMS", "mad(AMS)")
+colnames(output) <- c("AUC", "mad.AUC", "AMS", "mad.AMS")
 output <- data.frame(output)
 output <- mutate_if(output, is.numeric, round, digits=3)
 row.names(output) <- c("CV OOS", "Test set")
 
 # Generate LaTeX table
-latex(output, file=path_join(c(dirname(getwd()), "doc/final_results_table.tex")), caption=sprintf("Results for $\\lambda=%.2g$, $G=%i$, $n_{rbf}=%i$, K=%i on training set (`%s') and validation set (`%s')", lambda, G, n_rbf, K, train_label, val_label), label="table:final_results")
+if (do_save_outputs) {
+  latex(output, file=path_join(c(dirname(getwd()), "doc/final_results_table.tex")), caption=sprintf("Results for $\\lambda=%.2g$, $G=%i$, $n_{rbf}=%i$, K=%i on training set (`%s') and validation set (`%s')", lambda, G, n_rbf, K, train_label, val_label), label="table:final_results")
+}
 ```
 
 Save the output results to a .csv file.
