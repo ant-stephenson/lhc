@@ -5,7 +5,6 @@ library(tidyr)
 library(Matrix)
 library(fs)
 library(purrr)
-library(lhc)
 
 ## ----load data---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # divide data into training kaggle set, and retain hold-out (before further cross-validation partitioning)
