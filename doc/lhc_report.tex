@@ -19,7 +19,7 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-    ...
+    Analysing the fermionic Higgs decay channel $H\rightarrow\tau\tau$ is important for providing experimental evidence of the Higgs mechanism for fermions. Using statistical classification algorithms we aim to optimise the signal:background ratio in the data (measured by the AMS). In particular, we build a logistic regression model with some engineered features augmenting the original dataset. Using 10-fold cross-validation we select a ``best" model using the AMS (scaled by mean absolute deviation over folds) and then test its performance on a hold-out test set. On this set we achieve an AMS of 2.7.
 \end{abstract}
 
 \section{Introduction}
@@ -134,7 +134,7 @@ To attempt to capture generic higher order interaction-type effects, we implemen
 \end{algorithm}
 
 \subsubsection{Polynomial Transformations}
-In order to try and model non-linear relationships between our features and the target labels, we decided to try and include polynomial transformations of the features. 
+In order to try and model non-linear relationships between our features and the target labels, we decided to try and include polynomial transformations of the features. In the results section we will define the (highest) order of the polynomial transformation included in the model by the variable $b \in \{1,2,3\}$.
 
 \subsubsection{Interactions}
 Although we considered implementing interactions to further augment our covariates, we chose not to pursue this avenue in the end. The reason for this is that the number of combinations of pairwise interactions for our feature set is 378 Including all of these is likely to significantly increase the risk of overfitting our model, and without a principled method to either choose to only include a subset of interactions, or a way to remove most of them, it seems preferable to skip this option. Additionally, the large increase in feature space would also lead to a sizeable increase in computation time, as the Hessian dimensions would increase by a factor $\sim 4-5$ and hence the time by approximately two orders of magnitude (as our algorithm uses Newton's method which scales as $O(d^3)$ for a $d$-dimensional feature space) for the case where we include polynomial terms upto third order. If we include only the original features plus interactions, the computation time scales by worse than three orders of magnitude in comparison.
@@ -172,7 +172,14 @@ To finally choose our best performing model, we needed to define the criterion w
 
 \input{results_table}
 
-To try and determine how reliable our performance assessment might be, we plotted some figures for both performance measures (AUC and AMS) against varying regularisation, numbers of RBF centroids and order of polynomials. Restricting this summary analysis to our preferred metric, the scaled AMS, we see a noisy but somewhat consistent result in the boxplots in figure~\ref{fig:boxes}. The results for $n_{rbf}$ are particularly unclear, with a high degree of variability.
+To try and determine how reliable our performance assessment might be, we plotted some figures for both performance measures (AUC and AMS) against varying regularisation, numbers of RBF centroids and order of polynomials. Restricting this summary analysis to our preferred metric, the scaled AMS, we see a noisy but somewhat consistent result in the boxplots in figure~\ref{fig:boxes}. The results for $n_{rbf}$ are particularly unclear, with a high degree of variability, whilst the polynomial results, although variable between experiments, show a decisive improvement for 2nd order polynomials. Based on these and the top experiments, we opted for a final model of the following parameters:
+\eq{
+    \lambda &= 1\times 10^{-4} \\
+    b &= 2 \\
+    n_{rbf} &= 3 \\
+    \bm{\theta} &= (0.6, 0.4, 0.6)
+}
+for regularisation parameter $\lambda$, polynomial order $b$, number of RBF centroids $n_{rbf}$ and vector of jet group AMS thresholds $\bm{\theta} = (\theta_{j=0}, \theta_{j=1}, \theta_{j=2+})$.
 
 \begin{figure}[htbp]
     \begin{adjustbox}{max width=1.2\linewidth,center}
@@ -208,6 +215,7 @@ Clearly the result for the test set is significantly worse than that for the 10-
 
 \section{Conclusion}
 \label{conclusion}
+
 
 \pagebreak 
 
