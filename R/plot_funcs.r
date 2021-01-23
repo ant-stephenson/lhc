@@ -92,7 +92,7 @@ plot_amss <- function(amss, title=NULL, info="", min.max=TRUE, ...){
   abline(v=min_max_thresh, lty=2)
 
   legend("bottomleft", legend=c("Optimal threshold", paste0("Models 1-", n)),
-                col=c("black", colours[n]), lty=2:1, cex=0.8)
+                col=c("black", colours[n]), lty=2:1, cex=0.8, bg="white")
 }
 
 #' function to wrap figure saving
