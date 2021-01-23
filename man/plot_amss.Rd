@@ -4,12 +4,12 @@
 \alias{plot_amss}
 \title{define a function to plot multiple ams objects on the same axes}
 \usage{
-plot_amss(amss, title = "AMS data", min.max = TRUE, ...)
+plot_amss(amss, title = NULL, min.max = TRUE, ...)
 }
 \arguments{
 \item{amss}{list of ams objects}
 
-\item{title}{str title to give plot}
+\item{title}{str title to give plot, if null a default title is generated}
 }
 \description{
 define a function to plot multiple ams objects on the same axes
