@@ -100,11 +100,11 @@ generate_colours <- function(ncolours) {
 #' @param title str title to give plot
 #' @import RColorBrewer
 #' @export
-plot_rocs <- function(rocs, title="ROC curves"){
+plot_rocs <- function(rocs, title="ROC curves", ...){
   n <- length(rocs)
   colours <- colorRampPalette(brewer.pal(8, 'Blues')[2:8])(n) #gets some nice blues
   plot(0:1, 0:1, type="l", lty=2, xlab="False Positive Rate",
-       ylab="True Positive Rate", main=title)
+       ylab="True Positive Rate", main=title, ...)
   legend("bottomright", legend=c("Chance", "Logistic Regression"),
          col=c("black", colours[n]), lty=2:1)
   for(i in 1:n){
