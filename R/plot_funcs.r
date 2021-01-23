@@ -1,4 +1,4 @@
-#' Function to generate colours that are quite distinct
+#' Generate distinct colours
 #' @param ncolours number of colours we want
 #' @return vector of hex colours
 #' @export
@@ -13,126 +13,73 @@ generate_colours <- function(ncolours) {
   return(unlist(colours))
 }
 
-#If we're going for OOP approach for ROC, use ROC_curve$new(y_test, prob)
-#' Compute receiver operating characteristic (ROC) curve
-#'
-#' @param y response vector
-#' @param p_hat probability outputs from model
-#' @return list of false positive and true positive rates at different thresholds
-# compute_roc <- function(y, p_hat) {
-#     #threshold every n samples
-#     #because otherwise the points on the ROC are very uneven
-#     #order samples by p_hat
-#     y <- y[order(p_hat)]
-#     p_hat <- p_hat[order(p_hat)]
-#
-#     #take the 1st, and last p-value, and 20 evenly spaced in the middle
-#     ints <- c(seq(1, length(p_hat), length(p_hat)/20), length(p_hat))
-#     p_ints <- p_hat[round(ints)]
-#
-#     #for each p value, calculate the false positive rate and false negative rate
-#     FP <- rep(NA, length(p_ints))
-#     TP <- rep(NA, length(p_ints))
-#     for(i in 1:length(p_ints)){
-#         FP[i] <- sum(p_hat > p_ints[i] & y == 0) / sum(y == 0)
-#         TP[i] <- sum(p_hat > p_ints[i] & y == 1) / sum(y == 1)
-#     }
-#     return(list(FP, TP))
-# }
 
-#If we're going for OOP approach for ROC, use ROC_curve$new(y_test, prob); roc$calc_auc()
-#' Calculate the area under the ROC curve (AUC) as a metric of performance
-#'
-#' @param FP false positive rate (vector)
-#' @param TP true positive rate (vector)
-#' @return AUC estimate (scalar)
-# compute_AUC <- function(FP, TP) {
-#     #using trapezoidal rule to find integral over our points
-#     AUC <- 0
-#     FP <- rev(FP)
-#     TP <- rev(TP)
-#     for(i in 1:(length(FP)-1)){
-#       h <- FP[i+1] - FP[i]
-#       AUC <- AUC + (h/2 * (TP[i] + TP[i+1]))
-#     }
-#
-#     #f <- splinefun(FP, TP)
-#     #AUC <- integrate(f, 0, 1)
-#     return(AUC)
-# }
-
-#If we're going for OOP approach for ROC, use ROC_curve$new(y_test, prob); roc$plot_curve()
-#' Plot ROC curve for particular model
-#'
-#' @param y response vector
-#' @param p_hat model output probabilities
-# plot_roc <- function(y, p_hat, modelnum="k j") {
-#     # ROC plots FP vs TP. To get curve we vary the threshold
-#     # FP = false positive rate = no. false positives / number of negatives
-#     roc <- compute_roc(y, p_hat)
-#     FP <- roc[[1]]
-#     TP <- roc[[2]]
-#     auc <- compute_AUC(FP, TP)
-#     plot(0:1, 0:1, type="l", lty=2, col="red", xlab="False Positive Rate",
-#          ylab="True Positive Rate", main=paste("Model:", modelnum, ", AUC:", round(auc,2)))
-#     lines(FP, TP)
-#     legend("bottomright", legend=c("Chance", "Logistic Regression"), col=2:1, lty=2:1, cex=0.8)
-# }
-
-#Is this used?
-#' plots of parameter values by fold to compare and check consistency of models
-#' @param b matrix of coefficients (dxK)
-# plot_coefs <- function(b) {
-#     d <- nrow(b)
-#     K <- ncol(b)
-#     min_y <- min(b, na.rm=TRUE)
-#     max_y <- max(b, na.rm=TRUE)
-#     kcolours <- c("red", "blue", "green", "black", "orange")
-#     plot(c(1,d), c(min_y, max_y), type="n")
-#     for (k in 1:K) {
-#         points(1:d, b[,k], col=kcolours[k])
-#     }
-# }
+#' Calculate average AUC
+#' @param rocs a list of ROC_curve objects
+#' @return average AUC
+average_auc <- function(rocs){
+  lapply(rocs, function(x) x$calc_auc())
+  auc <- mean(sapply(rocs, function(x) x$auc))
+  return(auc)
+}
 
 
-#' define a function to plot multiple roc objects on the same axes
-#' @param rocs list of roc objects
+#' Plot Multiple ROC curves
+#' @param rocs a list of ROC_curve objects
 #' @param title str title to give plot
+#' @param info additional info to add to the default title
 #' @import RColorBrewer
 #' @export
-plot_rocs <- function(rocs, title="ROC curves", ...){
+plot_rocs <- function(rocs, title=NULL, info="", ...){
   n <- length(rocs)
+  auc <- average_auc(rocs)
   colours <- colorRampPalette(brewer.pal(8, 'Blues')[2:8])(n) #gets some nice blues
+
+  if(is.null(title)){
+    title <- sprintf("%s ROC curves with mean AUC of %.3f", info, auc)
+  }
+
   plot(0:1, 0:1, type="l", lty=2, xlab="False Positive Rate",
        ylab="True Positive Rate", main=title, ...)
-  legend("bottomright", legend=c("Chance", "Logistic Regression"),
-         col=c("black", colours[n]), lty=2:1)
+
   for(i in 1:n){
     lines(rocs[[i]]$FP, rocs[[i]]$TP, col=colours[i])
   }
+
+  legend("bottomright", legend=c("Chance", paste0("Models 1-", n)),
+         col=c("black", colours[n]), lty=2:1, cex=0.8)
+}
+
+#' Calculate optimal threshold
+#' @param amss a list of AMS_data objects
+#' @return optimal decision threshold considering all curves#
+ams_threshold <- function(amss){
+  # calculate the minimum bounding curve of the curves in amss
+  ams_vec <- sapply(amss, function(x) x$ams)
+  min_ams_obj <- amss[[1]]
+  min_ams <- pmax(apply(ams_vec, 1, min), 1e-1)
+  min_ams_obj$ams <- min_ams
+  min_max_thresh <- min_ams_obj$get_max_thresh()
+  return(min_max_thresh)
 }
 
 #' define a function to plot multiple ams objects on the same axes
 #' @param amss list of ams objects
-#' @param title str title to give plot
+#' @param title str title to give plot, if null a default title is generated
+#' @param info additional info to add to the default title
 #' @import RColorBrewer
 #' @export
-plot_amss <- function(amss, title="AMS data", min.max=TRUE, ...){
+
+plot_amss <- function(amss, title=NULL, info="", min.max=TRUE, ...){
   lapply(amss, function(x) x$calc_ams())
   y_max <- max(sapply(amss, function(x) max(x$ams)))
   n <- length(amss)
   colours <- colorRampPalette(brewer.pal(8, 'Blues')[2:8])(n) #gets some nice blues
   ams <- amss[[1]]
 
-  # calculate the minimum bounding curve of the curves in amss
-  if (min.max) {
-    ams_vec <- sapply(amss, function(x) x$ams)
-    min_ams_obj <- ams
-    min_ams <- pmax(apply(ams_vec, 1, min), 1e-1)
-    min_ams_obj$ams <- min_ams
-    min_max_thresh <- min_ams_obj$get_max_thresh()
-
-    title <- sprintf("AMS plot with max-min (over folds) threshold at t=%.3f", min_max_thresh)
+  min_max_thresh <- ams_threshold(amss)
+  if(is.null(title)){
+    title <- sprintf("%s AMS plots with threshold at %.3f", info, min_max_thresh)
   }
 
   plot(ams$thresholds, ams$ams, type="l", col=colours[1], main=title,
@@ -141,15 +88,11 @@ plot_amss <- function(amss, title="AMS data", min.max=TRUE, ...){
   for(i in 2:n){
     ams <- amss[[i]]
     lines(ams$thresholds, ams$ams, type="l", col=colours[i])
-    if (!min.max) {
-      abline(v=ams$max_thresh, lty=2)
-    }
   }
+  abline(v=min_max_thresh, lty=2)
 
-  if (min.max) {
-    abline(v=min_max_thresh, lty=2)
-  }
-  legend=legend("bottomleft", legend=1:n, fill=colours)
+  legend("bottomleft", legend=c("Optimal threshold", paste0("Models 1-", n)),
+                col=c("black", colours[n]), lty=2:1, cex=0.8)
 }
 
 #' function to wrap figure saving

@@ -97,8 +97,8 @@ ROC_curve <- setRefClass("ROC_curve",
           AUC <- AUC + (h/2 * (TP[i] + TP[i+1]))
         }
         .self$auc <- AUC
-        return(AUC)
       }
+      return(.self$auc)
     },
     plot_curve = function(){
       "Plot the ROC curve."

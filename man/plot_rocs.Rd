@@ -2,34 +2,17 @@
 % Please edit documentation in R/plot_funcs.r
 \name{plot_rocs}
 \alias{plot_rocs}
-\title{Compute receiver operating characteristic (ROC) curve}
+\title{Plot Multiple ROC curves}
 \usage{
-plot_rocs(rocs, title = "ROC curves")
+plot_rocs(rocs, title = NULL, info = "", ...)
 }
 \arguments{
-\item{rocs}{list of roc objects}
+\item{rocs}{a list of ROC_curve objects}
 
 \item{title}{str title to give plot}
 
-\item{FP}{false positive rate (vector)}
-
-\item{TP}{true positive rate (vector)}
-
-\item{y}{response vector}
-
-\item{p_hat}{model output probabilities
-plots of parameter values by fold to compare and check consistency of models}
-
-\item{b}{matrix of coefficients (dxK)
-define a function to plot multiple roc objects on the same axes}
-}
-\value{
-list of false positive and true positive rates at different thresholds
-Calculate the area under the ROC curve (AUC) as a metric of performance
-
-AUC estimate (scalar)
-Plot ROC curve for particular model
+\item{info}{additional info to add to the default title}
 }
 \description{
-Compute receiver operating characteristic (ROC) curve
+Plot Multiple ROC curves
 }

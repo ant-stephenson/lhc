@@ -2,7 +2,7 @@
 % Please edit documentation in R/plot_funcs.r
 \name{generate_colours}
 \alias{generate_colours}
-\title{Function to generate colours that are quite distinct}
+\title{Generate distinct colours}
 \usage{
 generate_colours(ncolours)
 }
@@ -13,5 +13,5 @@ generate_colours(ncolours)
 vector of hex colours
 }
 \description{
-Function to generate colours that are quite distinct
+Generate distinct colours
 }
