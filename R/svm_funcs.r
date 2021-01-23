@@ -15,8 +15,8 @@ svm <- function(X, y, C=1){
   #to use quadprog we need to rewrite the minimisation in the form 0.5 * lambda^T * D * lambda - d^T lambda
   #so to incorporate the y values into X (which we'll call Q)
   n <- nrow(X)
-  Q <- sapply(1:n, function(i) y[i]*X[i,])
-  D <- crossprod(Q, Q)
+  Q <- tcrossprod(X, X)
+  D <- outer(y, y) * Q
   d <- as.matrix(rep(1, n), ncol=1)
 
   #using a trick to perturb D by a small amount on the diagonal to ensure its positive definite
@@ -35,16 +35,15 @@ svm <- function(X, y, C=1){
   sol <- solve.QP(Dmat = D, dvec = d, Amat = A, bvec=b, meq=1)
   lambda <- sol$solution
 
+  # support vectors have lambda != 0
+  svs <- which(lambda > 0.01)
+
   # convert lambda back to w and w0
   w <- rep(0, ncol(X))
   for(i in 1:n){
     w <- w + lambda[i] * y[i] %*% X[i,]
   }
 
-  # support vectors have lambda != 0
-  svs <- which(lambda > 0.01)
-
-  # find w_0 using the support vectors
   w0 <- 0
   for(i in svs){
     w0 <- w0 + y[i] - w %*% X[i,]

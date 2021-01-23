@@ -1,8 +1,8 @@
 
 \begin{appendices}
-\section{AMS}
+\section{Convexity of the AMS metric}
 \label{appendix:ams}
-Is the AMS metric convex?
+The AMS metric is defined as:
 \eq{
     \rm{AMS} &= \sqrt{2\left((s+b)\log(1+\frac{s}{b})-s\right)}
 }
@@ -144,5 +144,57 @@ Since we have a free parameter $c$ that determines the optimal value $\lambda^\s
     \caption{Backtracking linesearch}
 \end{algorithm}
 \label{algo:line}
+
+\subsection{SVM}
+\subsubsection{Soft-margin SVM}
+For a dataset $D=\{(\textbf{x}_i, y_i)\}_{i=1}^n$, $\textbf{x} \in \mathbb{R}^d$, $y_i \in \{-1, +1\}$, support vector machines (SVM) aim to find the optimal hyperplane which separates samples of each class $y$. The optimal hyperplane $f(\textbf{x}, \textbf{w}) = \textbf{w}^T \textbf{x} + w_0 = 0$ classifies all samples correctly and has the largest distance to the nearest sample. The parameters $\textbf{w}$ and $w_0$ are found by solving the following optimisation problem:
+\begin{align}
+\text{minimise: } & \frac{1}{2} || \textbf{w} ||^2 \notag \\
+\text{subject to: } &\forall_i, \quad y_i f(\textbf{x}_i, \textbf{w}) \geq 0 \notag
+\end{align}
+When classes are not linearly separable, soft-margin SVM allows some samples to be misclassified by the boundary by including slack variables $\epsilon_i$. The slack variables are penalised, and parameter $C$ controls the strength of this penalty compared to the margin. The optimisation problem becomes:
+\begin{align}
+\text{minimise: } & \frac{1}{2} || \textbf{w} ||^2 + C \sum_i \epsilon_i \notag \\
+\text{subject to: } &\forall_i, \quad y_i f(\textbf{x}_i, \textbf{w}) + \epsilon_i \geq 1, \quad\epsilon_i \geq 1 \notag
+\end{align}
+The problem can be re-written as a Lagrangian:
+\begin{align}
+L(\boldsymbol{\lambda}, \boldsymbol{\eta}) 
+	&= \frac{1}{2} ||\textbf{w}||^2 
+	+ C \sum_i \epsilon_i 
+	- \sum_i \lambda_i (y_i (\textbf{w}^T \textbf{x} + w_0) + \epsilon_i - 1) 
+	- \sum_i \eta_i \epsilon_i 
+	\notag
+\end{align}
+Setting the differentials to 0 gives the following conditions:
+\begin{align}
+\textbf{w} = \sum_i \lambda_i y_i \textbf{x}_i^T,
+	\qquad
+\sum_i \lambda_i y_i = 0,
+	\qquad
+\lambda_i + \eta_i = C \notag
+\end{align}
+and substituting these back into the Lagrangian eliminates $\textbf{w}, w_0, \epsilon_i$ and $\eta_i$ to give:
+$$L(\boldsymbol{\lambda}) = - \dfrac{||\sum_i \lambda_i y_i \textbf{x}_i^T||^2}{2}
+	+ \sum_i \lambda_i$$
+This leaves a quadratic optimisation problem to find $\boldsymbol{\lambda}$ subject to the KKT conditions:
+$$0 \leq \lambda_i \leq C, \qquad \sum_i \lambda_i y_i = 0$$
+To use a quadratic optimisation package, it is useful to rewrite the problem in the form $\boldsymbol{\lambda}^T \textbf{D} \boldsymbol{\lambda}$. Letting $\textbf{X}$ be a matrix with rows $\textbf{x}_i^T$, $\textbf{y}$ be an $n \times 1$ vector, and $\circ$ be a Hadamard product:
+\begin{align}\label{SVM Lagrangian}
+L(\boldsymbol{\lambda}) =- \dfrac{\boldsymbol{\lambda} ((\textbf{yy}^T) \circ (\textbf{XX}^T)) \boldsymbol{\lambda}}{2} + \langle \textbf{1}, \boldsymbol{\lambda} \rangle
+\end{align}
+Once $\boldsymbol{\lambda}$ is found, $\textbf{w}$ can be retrieved using $\textbf{w} = \sum_i \lambda_i y_i \textbf{x}_i^T$, and $w_0$ can be retrieved using the support vectors. Let $\mathcal{S}$ be the set of support vectors: samples where $\lambda_i \neq 0$ and $y_i (\textbf{w}^T \textbf{x} + w_0) = 1$. Any support vector can be used to find $w_0$, but it is more numerically stable to find the average across the set:
+$$w_0 = \frac{1}{|\mathcal{S}|} \sum_{m \in \mathcal{S}} y_m - \textbf{w}^T \textbf{x}_m$$
+
+Given a new sample $\textbf{x}_n$, it's class is predicted as:
+$$\hat{y}_n = \text{sign} (\textbf{w}^T \textbf{x}_n + w_0)$$
+
+\subsubsection{Kernel SVM}
+In equation \ref{SVM Lagrangian} the input data appears only in the term $\textbf{XX}^T$, which is equivalent to a linear kernel matrix $\textbf{K}$, where $K_{ij} = k(\textbf{x}_i, \textbf{x}_j) = \textbf{x}_i^T \textbf{x}_j$. Other kernel functions can also be used such as a b-degree polynomial kernel $(\textbf{x}_i^T \textbf{x}_j +1)^b$.
+
+Given a new sample $\textbf{x}_n$, it's class is predicted as:
+$$\hat{y}_n = \text{sign} \Big(\sum_{m \in \mathcal{S}} \lambda_m y_m k(\textbf{x}_n, \textbf{x}_m) + w_0 \Big)$$
+where $w_0$ is calculated as:
+$$w_0 = \frac{1}{|\mathcal{S}|} \sum_{s \in \mathcal{S}} \Big( y_s - \sum_{m \in \mathcal{S}} \lambda_m y_m k(\textbf{x}_s, \textbf{x}_m) \Big)$$
 
 \end{appendices}
