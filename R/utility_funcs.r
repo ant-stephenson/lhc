@@ -235,7 +235,6 @@ decide <- function(p, thresh = 0.5) {
 #' and b is the sum of the weights of incorrect signal classifications (FP)
 #' @param s count of true positives
 #' @param b count of false positives
-#' @export
 ams_metric <- function(s, b) {
     br <- 10
     sqrt(2 * ((s + b + br) * log(1 + s/(b + br)) - s))
@@ -271,15 +270,16 @@ count_b <- function(y, y_hat, w) {
 #' @param w weights
 #' @param sum_w total sum of weights for renormalisation
 #' @return ams
+#' @export
 calculate_ams_partition <- function(y, y_hat, w, sum_w=NULL) {
   if (!is.null(sum_w)) {
     w <- w * sum_w/sum(w)
   }
-    y_hat <- as.numeric(y_hat)
-    s <- count_s(y, y_hat, w)
-    b <- count_b(y, y_hat, w)
-    ams <- ams_metric(s, b)
-    return(ams)
+  y_hat <- as.numeric(y_hat)
+  s <- count_s(y, y_hat, w)
+  b <- count_b(y, y_hat, w)
+  ams <- ams_metric(s, b)
+  return(ams)
 }
 
 
