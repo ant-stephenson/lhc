@@ -109,10 +109,13 @@ permute_matrix <- function(X, r=1) {
     return(X_perm)
 }
 
-#' Run polynomial transform on columns of X (of order b), removing output columns that are highly correlated
+#' Polynomial transform
+#'
+#' Run a b-degree polynomial transform on the columns of X (of order b)
+#'
 #' @param X matrix of covariates
 #' @param b order of polynomial
-#' @return X augmented matrix of covariates
+#' @return augmented matrix of covariates
 #' @export
 poly_transform <- function(X, b=2){
   orig_cols <- colnames(X)
@@ -121,18 +124,45 @@ poly_transform <- function(X, b=2){
         colnames(Xb) <- paste0(colnames(Xb), "^", i)
         X <- cbind(X, Xb)
     }
-    # #remove highly correlated variables
-    # cors <- cor(X)
-    # cors[!lower.tri(cors)] <- 0
-    # X <- X[, !apply(cors,2,function(x) any(abs(x) > 0.80, na.rm=TRUE))]
 
     #truncate particularly large values that might overflow
     if (b >=2) {
-    #   max_val <- apply(X, 2, function(x) log10(max(x, na.rm=TRUE)))
-    #   X <- X[, names(max_val[max_val < 8])]
         X[abs(X) > 1e6] <- 1e6
     }
     return(X)
+}
+
+#' Scale features
+#'
+#' This define a function to scale features of a matrix with reference to another matrix
+#' useful because you can normalise X_train, and apply the same transformation to X_test.
+#' Use with caution if either dataset contain extreme outliers.
+#'
+#' @param X matrix of covariates.
+#' @param ref matrix of covariates from which to calculate mu and sd.
+#' @param na.rm a logical to indicate if NAs should be stripped in mean and standard deviation computations.
+#' @param add.intercept a logical to indicate if column of 1s should be added to the output (Intercept)
+#' @return augmented matrix of covariates, standardized and an intercept column
+#' @export
+scale_dat <- function(X, ref, na.rm=FALSE, add.intercept=TRUE){
+  if(ncol(X) != ncol(ref)) stop('Two inputs must have the same number of columns')
+
+  #calculate column means and sds of ref, ignoring NAs
+  mu <- colMeans(ref, na.rm=na.rm)
+  sd <- apply(ref, 2, function(x) sd(x, na.rm=na.rm))
+
+  #transform columns of X
+  for(i in 1:ncol(ref)){
+    X[,i] <- (X[,i] - mu[i]) / sd[i] #is there a smarter way to do this not in a loop?
+  }
+
+  #also add column of 1s called intercept
+  if (add.intercept) {
+    Intercept <- rep(1, nrow(X))
+    X <- cbind(Intercept, X)
+  }
+
+  return(X)
 }
 
 #' find colnames for columns that are constant (e.g. all 1, -999, NA etc)

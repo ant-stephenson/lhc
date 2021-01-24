@@ -34,35 +34,6 @@ import_data <- function(filepath="atlas-higgs-challenge-2014-v2.csv") {
   return(output)
 }
 
-#' define a function to scale features of a matrix with reference to another matrix
-#' useful because you can normalise X_train, and apply the same transformation to X_test
-#' not designed for data with -999s!
-#' @param X matrix of covariates
-#' @param ref matrix of covariates from which to calculate mu and sd
-#' @param na.rm flag to be compatible with colMeans and sd (to ignore NA)
-#' @return augmented matrix of covariates, standardized and an intercept column
-#' @export
-scale_dat <- function(X, ref, na.rm=FALSE, add.intercept=TRUE){
-  if(ncol(X) != ncol(ref)) stop('Two inputs must have the same number of columns')
-
-  #calculate column means and sds of ref, ignoring NAs
-  mu <- colMeans(ref, na.rm=na.rm)
-  sd <- apply(ref, 2, function(x) sd(x, na.rm=na.rm))
-
-  #transform columns of X
-  for(i in 1:ncol(ref)){
-    X[,i] <- (X[,i] - mu[i]) / sd[i] #is there a smarter way to do this not in a loop?
-  }
-
-  #also add column of 1s called intercept
-  if (add.intercept) {
-    Intercept <- rep(1, nrow(X))
-    X <- cbind(Intercept, X)
-  }
-
-  return(X)
-}
-
 #' Get boolean vector of rows with j=0,1 or 2+
 #' @param nj Vector of number of jets for each point
 #' @param j jet group

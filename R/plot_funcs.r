@@ -33,7 +33,13 @@ average_auc <- function(rocs){
 plot_rocs <- function(rocs, title=NULL, info="", ...){
   n <- length(rocs)
   auc <- average_auc(rocs)
-  colours <- colorRampPalette(brewer.pal(8, 'Blues')[2:8])(n) #gets some nice blues
+
+  #gets some nice blues
+  if(n >= 7){
+    colours <- colorRampPalette(brewer.pal(8, 'Blues')[2:8])(n)
+  } else{
+    colours <- brewer.pal(n+1, 'Blues')[2:n+1]
+  }
 
   if(is.null(title)){
     title <- sprintf("%s ROC curves with mean AUC of %.3f", info, auc)
@@ -69,17 +75,26 @@ ams_threshold <- function(amss){
 #' @param info additional info to add to the default title
 #' @import RColorBrewer
 #' @export
-
 plot_amss <- function(amss, title=NULL, info="", min.max=TRUE, ...){
   lapply(amss, function(x) x$calc_ams())
   y_max <- max(sapply(amss, function(x) max(x$ams)))
   n <- length(amss)
-  colours <- colorRampPalette(brewer.pal(8, 'Blues')[2:8])(n) #gets some nice blues
+
+  #gets some nice blues
+  if(n >= 7){
+    colours <- colorRampPalette(brewer.pal(8, 'Blues')[2:8])(n)
+  } else{
+    colours <- brewer.pal(n+1, 'Blues')[2:n+1]
+  }
   ams <- amss[[1]]
 
-  min_max_thresh <- ams_threshold(amss)
-  if(is.null(title)){
-    title <- sprintf("%s AMS plots with threshold at %.3f", info, min_max_thresh)
+  if(min.max){
+    min_max_thresh <- ams_threshold(amss)
+    if(is.null(title)){
+      title <- sprintf("%s AMS plots with threshold at %.3f", info, min_max_thresh)
+    }
+  } else if(!min.max & is.null(title)){
+    title <- "AMS data"
   }
 
   plot(ams$thresholds, ams$ams, type="l", col=colours[1], main=title,
@@ -89,13 +104,18 @@ plot_amss <- function(amss, title=NULL, info="", min.max=TRUE, ...){
     ams <- amss[[i]]
     lines(ams$thresholds, ams$ams, type="l", col=colours[i])
   }
-  abline(v=min_max_thresh, lty=2)
 
-  legend("bottomleft", legend=c("Optimal threshold", paste0("Models 1-", n)),
-                col=c("black", colours[n]), lty=2:1, cex=0.8, bg="white")
+  if(min.max){
+    abline(v=min_max_thresh, lty=2)
+    legend("bottomleft", legend=c("Optimal threshold", paste0("Models 1-", n)),
+           col=c("black", colours[n]), lty=2:1, cex=0.8, bg="white")
+  }else{
+    legend("bottomleft", legend=1:n, col=colours[n], lty=1, cex=0.8, bg="white")
+  }
 }
 
-#' function to wrap figure saving
+
+#' Wrap figure saving
 #' @param plot_func partially called function of no arguments to generate plot
 #' @param filepath string file path to save to
 #' @param filetype type to save as (function name)

@@ -174,7 +174,7 @@ AMS_data <- setRefClass("AMS_data",
       #plot the ams at different thresholds, with a line at the best
       plot(thresholds, ams, type="l", col="steelblue", main="AMS at different decision thresholds")
       abline(v=max_thresh, lty=2)
-      legend("topright", legend=paste0("Max AMS at p=", round(max_thresh, 2)), lty=2)
+      legend("bottomleft", legend=paste0("Max AMS at p=", round(max_thresh, 2)), lty=2)
     }
   )
 )
