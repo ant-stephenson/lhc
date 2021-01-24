@@ -1,115 +1,100 @@
 ---
-title: "SVM"
+title: "2. SVM"
 output: pdf_document
+geometry: margin=0.8in
+urlcolor: purple
 ---
   
-```{r setup, include=FALSE}
+```{r, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_chunk$set(out.width = '80%', fig.align = "center")  
+knitr::opts_chunk$set(fig.align = "center")  
 ```
 
-## Load packages
-```{r, results = 'hide'}
-library(ggplot2)
+```{r, eval=T, include=F, message=F}
+devtools::install_github("ant-stephenson/lhc")
+library(lhc)
 library(dplyr)
+library(ggplot2)
 library(tidyr)
-library(Matrix)
-library(RColorBrewer)
+library(kableExtra)
 
-source("utility_funcs.r")
-source("svm_funcs.r")
-```
+#reload data exactly as in the first script
+filepath <- list.files(path="~", pattern="atlas-higgs-challenge-2014-v2.csv", 
+                       full.names=T, recursive=T)
 
-## Introduction
-We wanted to try implement a support vector machine (SVM) algorithm in R to apply to this the LHC data.
-Soft margin SVM should have similar performance to logistic regression.
-Kernel SVM can use the 'kernel trick' to increase accuracy by projecting the data into a higher dimensional transformation.
-This could be useful for the LHC data as it is not linearly separable.
-However SVM is an O(n^2) algorithm and so it wont be possible to use on any significant portion of the training data.
-
-## Load data
-```{r}
-#load the raw data
+#fast load the raw data
 raw_data <- data.table::fread("../../atlas-higgs-challenge-2014-v2.csv")
 
-#Split data into 2 dataframes: info and variables, both with event id as row names to check they stay matched
-info <- as.data.frame(raw_data[, c("KaggleSet", "KaggleWeight", "Weight", "Label")]) 
-info$Y <- as.numeric(info$Label == "s") #recodes background to 0 and signal to 1
-rownames(info) <- raw_data$EventId
+#Split data into X (just variables) and additional info
+all_info <- as.data.frame(raw_data[, c("KaggleSet", "KaggleWeight", "Weight", "Label")]) 
+all_X <- as.matrix(raw_data[, -c("EventId", "KaggleSet", "KaggleWeight", "Weight", "Label")])
 
-#For SVM recode Y as -1 and 1
+#assign event id as row names so we can check the two stay matched
+rownames(all_info) <- rownames(all_X) <- raw_data$EventId
+
+#add a column with numerical coding of class label (0,1)
+all_info$Y <- as.numeric(all_info$Label == "s") 
+
+#Select the training set
+X <- all_X[raw_data$KaggleSet=="t",]
+info <- all_info[raw_data$KaggleSet=="t",]
+
+#adding a new column in info which indicates the groupings
+info$Group <- factor(X[,"PRI_jet_num"], 
+                     levels=c(0, 1, 2, 3), 
+                     labels=c("j=0", "j=1", "j=2+", "j=2+"))
+
+G <- nlevels(info$Group)
+groups <- levels(info$Group)
+
+#define which columns we can remove from each subset (now constants, sd=0)
+features_to_rm <- vector("list", 3)
+for(g in 1:G){
+  features_to_rm[[g]] <- colnames(X)[apply(X[info$Group==groups[g],], 2, sd) == 0]
+}
+```
+
+# SVM 
+In the `lhc` package we have implemented two support vector machine (SVM) algorithms: `svm` and `kernel_svm`. In this section of the notebook we attempt to apply these methods to the Higgs Challenge. We would expect soft-margin SVM to have a similar performance to logistic regression, and that kernel SVM could improve on this as it can transform the dataset and create a non-linear decision boundary. Unfortunately, SVM algorithms do not scale well with the number of samples and so we are unlikely to be able to train our models on a significant portion of the training data.
+
+Our SVM functions take as inputs: a design matrix $X$, binary class labels $y \in \{-1, 1\}$, a parameter $C$ to controls the relative weighting of maximising the margin vs minimising the slack variables, and for `kernel_svm` a kernel function `ckernel(x_i, x_j)`. 
+
+The data is restructured as a Lagrangian
+$$L(\boldsymbol{\lambda}) =- \dfrac{\boldsymbol{\lambda} ((\textbf{yy}^T) \circ (\textbf{XX}^T)) \boldsymbol{\lambda}}{2} + \langle \textbf{1}, \boldsymbol{\lambda} \rangle$$
+subject to 
+$$0 \leq \lambda_i \leq C, \qquad \sum_i \lambda_i y_i = 0$$
+For `kernel_svm`, $\textbf{XX}^T$ is replaced with $K$, where $K_{ij} = k(\textbf{x}_i, \textbf{x}_j)$.
+
+To solve the quadratic optimisation problem, `solve.QP` from the `quadprog` package is used. The SVM functions then return a function/trained model which predicts the classes of new samples. For example, the prediction function for the soft-margin SVM takes the form $y_i = \textbf{w}^T \textbf{x}_i + w_0$.
+
+SVM algorithms are not probabilistic; that is, they return the predicted class of samples $\hat{y}_i$ not the probability $P(y_i=s | \textbf{x}_i)$. This means we cannot us our `ROC_curve` and `AMS_data` object classes which vary a decision threshold, and we so calculate a single AMS value for the test set.
+
+## Soft-margin SVM
+First we run a first pass of the soft-margin SVM on each of our groups using a small training set. We test how standardising the data before fitting affects performance, and how performance compares to chance (random assignment of classes).
+
+```{r, fig.width=4.5, fig.height=3.5}
+#for SVM recode Y as -1 and 1
 info$Y[info$Y == 0] <- -1
-
-X <- as.matrix(raw_data[, -c("EventId", "KaggleSet", "KaggleWeight", "Weight", "Label")])
-rownames(X) <- raw_data$EventId
-
-#Extract a validation set and keep the kaggle dataset as our main data (including CV)
-X_validation <- X[raw_data$KaggleSet!="t",]
-info_validation <- info[raw_data$KaggleSet!="t",]
-
-X <- X[raw_data$KaggleSet=="t",]
-info <- info[raw_data$KaggleSet=="t",]
-
-#Split the data by number of jets
-group <- X[, "PRI_jet_num"] + 1
-group[group==4] <- 3
-G <- length(unique(group))
-features_to_rm <- vector("list", G)
-for(g in 1:G) {
-  features_to_rm[[g]] <- colnames(X)[apply(X[group==g,], 2, sd) == 0]
-}
-
-#Function to calculate AMS
-ams_metric <- function(y, y_pred, weights){
-  #calculate s and b
-  #s is the sum of the weights of the correctly predicted positives (true positives)
-  #b is the sum of the weights of the incorrectly predicted positives (false positives)
-  s <- sum(weights[y_pred==1 & y==1])
-  b <- sum(weights[y_pred==1 & y!=1])
-  
-  #calculate ams using kaggle formula
-  breg <- 10
-  AMS <- sqrt(2*((s+b+breg)*log(1+s/(b+breg))-s))
-  return(AMS)
-}
 
 #Set seed so random samples are reproducible
 set.seed(110)
 
-#define a function to plot the results tables
-#we want one line for each group and x and y axis may change
-plot_results <- function(results, xlab, ylab){
-  #convert data to a long table for plotting
-  plot_data <- as.data.frame(cbind(rownames(results), results))
-  plot_data <- pivot_longer(plot_data, cols=-c("V1"), names_to="Test", values_to="Value") %>%
-    mutate(Value = as.numeric(Value)) %>%
-    filter(!is.na(Value))
-  #if the xlabels are numeric convert this column to numeric
-  test <- suppressWarnings(as.numeric(plot_data$Test[1]))
-  if(!is.na(test)){
-    plot_data$Test <- as.numeric(plot_data$Test)
-  }
-  #create a plot with line for each group
-  ggplot(plot_data, aes(x=Test, y=Value, color=V1, group=V1))+
-    geom_line() +
-    geom_point() +
-    theme_classic() +
-    theme(legend.title = element_blank()) +
-    labs(x=xlab, y=ylab)
-}
-```
+#create a results table to store AMS
+results <- as.data.frame(matrix(NA, nrow=G, ncol=4))
+results[,1] <- groups
+colnames(results) <- c("Group", "SVM", "Scaled SVM", "Chance")
 
-# Soft margin SVM
-```{r}
-#for each of the groups, see how soft margin SVM performs
-#only using n randomly selected training samples from each group. n must be small
-ams <- chance_ams <- rep(NA, G)
-n <- 1000
+#find the total weights for rescaling in AMS calculations
+sum_w <- sum(info$Weight)
+
+#loop through the groups
+n <- 500
 for(g in 1:G){
-  X_group <- X[group==g, !colnames(X) %in% features_to_rm[[g]]]
-  info_group <- info[group==g, ]
+  #select samples from this group
+  X_group <- X[info$Group==groups[[g]], !colnames(X) %in% features_to_rm[[g]]]
+  info_group <- info[info$Group==groups[[g]], ]
 
-  #randomly take n samples from the group to train, and use the rest as test
+  #randomly select n sample to train, and use the rest as test
   ind <- c(rep(0, n), rep(1, nrow(X_group) - n))
   kI <- sample(ind, nrow(X_group))
   
@@ -118,42 +103,60 @@ for(g in 1:G){
   
   X_test <- X_group[kI == 1,]
   y_test <- info_group[kI == 1, "Y"] 
-  
-  #scale the sample weights of the test group appropriately for AMS calculation
   w_test <- info_group[kI == 1, "Weight"]
-  w_test <- w_test * (sum(info$Weight)/sum(w_test))
   
-  #fit the soft margin SVM to the training samples (returns a function)
+  #train a model on unscaled data
   model <- svm(X_train, y_train, C=1)
   
-  #use the resulting function to predict classes of the training samples
+  #use the resulting function to predict the classes of the training samples
   y_pred <- model(X_test)
   
-  #calculate ams
-  ams[g] <- ams_metric(y_test, y_pred, w_test)
+  #calculate AMS
+  results[g, 2] <- calculate_ams_partition(y_test, y_pred, w_test, sum_w)
   
-  #check if it has performed better than chance!
+  #scale the training data, and scale the test data with the same transformation
+  X_test_scaled <- scale_dat(X_test, X_train, add.intercept = F)
+  X_train_scaled <- scale_dat(X_train, X_train, add.intercept = F)
+  
+  #train a model on scaled data and calculate AMS
+  model <- svm(X_train_scaled, y_train, C=1)
+  y_pred_scaled <- model(X_test_scaled)
+  results[g, 3] <- calculate_ams_partition(y_test, y_pred_scaled, w_test, sum_w)
+  
+  #randomly assign classes and calculate AMS
   y_rand <- sample(c(-1, 1), length(y_test), replace=T)
-  chance_ams[g] <- ams_metric(y_test, y_rand, w_test)
+  results[g, 4] <- calculate_ams_partition(y_test, y_rand, w_test, sum_w)
 }
-ams
-chance_ams
+
+results %>%
+  pivot_longer(cols=-"Group", names_to="Test", values_to="AMS") %>%
+  ggplot(aes(x=Group, y=AMS, fill=Test)) +
+    geom_bar(position="dodge", stat = "identity", width=0.5) +
+    theme_minimal()
 ```
 
-# Soft margin SVM
-How does increasing n affect time and performance
-```{r}
-sizes <- c(100, 500, 1000)
-results <- matrix(NA, nrow=G, ncol=length(sizes))
-colnames(results) <- sizes
-rownames(results) <- c("Jet=0", "Jet=1", "Jet>=2")
+Interestingly, the SVM models trained on only `r n` samples perform almost as well as the logistic regression. It's likely that this is around the best performance possible with a linear boundary. 
+
+The three groups have different chance performance which is likely due to the different proportions of signal to background events. Scaling the data before training appears to have a negligible impact.
+
+## Training size
+How does increasing n affect time and performance?
+
+```{r, fig.width=4.5, fig.height=3.5}
+#create a results table to store AMS
+sizes <- c(100, 200, 500, 1000)
+results <- as.data.frame(matrix(NA, nrow=G, ncol=length(sizes)+1))
+results[,1] <- groups
+colnames(results) <- c("Group", sizes)
+
+#and a table to store the times
 times <- results
 
 for(i in 1:length(sizes)){
   n <- sizes[i] 
   for(g in 1:G){
-    X_group <- X[group==g, !colnames(X) %in% features_to_rm[[g]]]
-    info_group <- info[group==g, ]
+    X_group <- X[info$Group==groups[[g]], !colnames(X) %in% features_to_rm[[g]]]
+    info_group <- info[info$Group==groups[[g]], ]
   
     ind <- c(rep(0, n), rep(1, nrow(X_group)-n))
     kI <- sample(ind, nrow(X_group))
@@ -163,223 +166,145 @@ for(i in 1:length(sizes)){
     
     X_test <- X_group[kI == 1,]
     y_test <- info_group[kI == 1, "Y"] 
-    
     w_test <- info_group[kI == 1, "Weight"]
-    w_test <- w_test * (sum(info$Weight)/sum(w_test))
     
     time_check<- function(){
       model <- svm(X_train, y_train, C=1)
       y_pred <- model(X_test)
       return(y_pred)
     }
-    times[g, i] <- system.time(y_pred <- time_check())["elapsed"]
     
-    results[g, i] <- ams_metric(y_test, y_pred, w_test)
+    times[g, i+1] <- system.time(y_pred <- time_check())["elapsed"]
+    
+    results[g, i+1] <- calculate_ams_partition(y_test, y_pred, w_test, sum_w)
   }
 }
-results
-times
 
-plot_results(results, xlab="n", ylab="AMS")
-plot_results(times, xlab="n", ylab="Time (s)")
+results %>%
+  pivot_longer(cols=-"Group", names_to="n", values_to="AMS") %>%
+  mutate(n=as.numeric(n)) %>%
+  ggplot(aes(x=n, y=AMS, colour=Group)) +
+    geom_line() +
+    geom_point() +
+    theme_minimal()
+
+times %>%
+  pivot_longer(cols=-"Group", names_to="n", values_to="Time") %>%
+  mutate(n=as.numeric(n)) %>%
+  ggplot(aes(x=n, y=Time, colour=Group)) +
+    geom_line() +
+    geom_point() +
+    theme_minimal()
 ```
 
-# How does changing C affect performance?
-should have repeats to make it more reliable
+We can see that performance (AMS score) does not increase much by doubling the sample size from 500 to 1000, but the computational complexity is approximately $\mathcal{O}(n^3)$
 
-```{r}
-regs <- c(1, 5, 10, 20)
+## Ensemble SVM
+Ensemble SVM is a technique where multiple SVM models are trained on subsets of the training data. To classify new samples, the majority vote from the models is taken. Dividing a dataset of $n$ samples over $m$ models reduces the computational complexity of an $\mathcal{O}(n^2)$ algorithm to $\mathcal{O}(n^2/m)$.
+
+```{r, fig.width=4.5, fig.height=3.5}
+m <- 10
 n <- 500
-results <- matrix(NA, nrow=G, ncol=length(regs))
-colnames(results) <- regs
-rownames(results) <- c("Jet=0", "Jet=1", "Jet>=2")
 
-for(i in 1:length(regs)){
-  for(g in 1:G){
-    X_group <- X[group==g, !colnames(X) %in% features_to_rm[[g]]]
-    info_group <- info[group==g, ]
-  
-    ind <- c(rep(0, n), rep(1, nrow(X_group)-n))
-    kI <- sample(ind, nrow(X_group))
-    
-    X_train <- X_group[kI == 0,]
-    y_train <- info_group[kI == 0, "Y"] 
-    
-    X_test <- X_group[kI == 1,]
-    y_test <- info_group[kI == 1, "Y"] 
-    
-    w_test <- info_group[kI == 1, "Weight"]
-    w_test <- w_test * (sum(info$Weight)/sum(w_test))
-    
-    model <- svm(X_train, y_train, C=regs[i])
-    y_pred <- model(X_test)
-    results[g, i] <- ams_metric(y_test, y_pred, w_test)
-  }
-}
-results
+results <- as.data.frame(matrix(NA, nrow=G, ncol=m+2))
+results[,1] <- groups
+colnames(results) <- c("Group", paste("Model", 1:m), "Ensemble")
 
-plot_results(results, xlab="Regularisation paramter C", ylab="AMS")
-```
-
-# Ensemble SVM (non-kernel)
-for one of the jet numbers
-split data into training and test
-split training data into k groups (ideally so n is around 2000)
-Train k SVMs and save the resulting model coefficients
-Predict the labels of the test data and calculate AMS for each model
-Take the majority vote from the k models and calculate overall AMS
-Use different values of C for the k models and see if overall AMS improves
-https://www.researchgate.net/publication/300896635_SVM_Ensembles_Are_Better_When_Different_Kernel_Types_Are_Combined#read
-
-```{r}
-#to hold results
-k <- 4
-n <- 1000
-results <- matrix(NA, nrow=G, ncol=k+1)
-colnames(results) <- c(paste("Model", 1:k), "Ensemble")
-rownames(results) <- c("Jet=0", "Jet=1", "Jet>=2")
+#use a different parameter C for each model
+params <- sample(1:50, m)
 
 for(g in 1:G){
-  X_group <- X[group==g, !colnames(X) %in% features_to_rm[[g]]]
-  info_group <- info[group==g, ]
+  X_group <- X[info$Group==groups[[g]], !colnames(X) %in% features_to_rm[[g]]]
+  info_group <- info[info$Group==groups[[g]], ]
   
-  #Split into training and test, where training is k groups * n samples
-  samples <- sample(1:nrow(X_group), k*n)
+  ind <- c(rep(1:m, n), rep(0, nrow(X_group)-m*n))
+  kI <- sample(ind, nrow(X_group))
   
-  X_train <- X_group[samples,]
-  y_train <- info_group[samples, "Y"]
-  
-  X_test <- X_group[-samples,]
-  y_test <- info_group[-samples, "Y"] 
-  
-  w_test <- info_group[-samples, "Weight"]
-  w_test <- w_test * (sum(info$Weight)/sum(w_test))
-  
-  kI <- partition_data(n=n*k, k=k, random=T)
-  
-  #objects to hold results
-  y_predictions <- matrix(NA, ncol=k, nrow=nrow(X_test))
+  X_test <- X_group[kI==0, ]
+  y_test <- info_group[kI==0, "Y"] 
+  w_test <- info_group[kI==0, "Weight"]
+
+  #store test predictions from m models 
+  y_predictions <- matrix(NA, ncol=m, nrow=nrow(X_test))
   
   #for each of the k groups, fit a svm, and calc ams
-  for(i in 1:k){
-    X_sub <- as.matrix(X_train[kI == i,])
-    y_sub <- y_train[kI == i] 
+  for(i in 1:m){
+    X_train <- X_group[kI == i,]
+    y_train <- info_group[kI == i, "Y"] 
     
-    model <- svm(X_train, y_train, C=2*i)
+    model <- svm(X_train, y_train, C=params[i])
     y_pred <- model(X_test)
     y_predictions[,i] <- y_pred
     
-    results[g, i] <- ams_metric(y_test, y_pred, w_test)
+    results[g, i+1] <- calculate_ams_partition(y_test, y_pred, w_test, sum_w)
   }
   
   #now find the ams from majority vote
   y_pred <- sign(rowMeans(y_predictions, na.rm=T))
-  results[g, k+1] <- ams_metric(y_test, y_pred, w_test)
+  results[g, m+2] <- calculate_ams_partition(y_test, y_pred, w_test, sum_w)
 }
-results
 
-boxplot(t(results[,1:k]), xlab="Group", ylab="AMS", ylim=c(min(results), max(results)), main=paste(k, "x", n, "SVM"), col="white")
-points(1:3, results[,k+1], col="steelblue", pch=16)
-legend("topleft", legend="Ensemble", pch=16, col="steelblue")
+
+plot_data <- results %>%
+  pivot_longer(cols=-"Group", names_to="Model", values_to="AMS") %>%
+  mutate(Ensemble = grepl("Ensemble", Model))
+
+ggplot(plot_data[!plot_data$Ensemble,], aes(x=Group, y=AMS, colour=Group)) +
+  geom_boxplot() +
+  geom_point(data=plot_data[plot_data$Ensemble,], aes(fill=Ensemble), colour="black") +
+  theme_minimal()
 ```
 
-# Kernel SVM
-kernel_svm function takes longer than the normal svm as the kernel matrix needs to be calculated, and prediction also requires the kernel function.
-Check how kernel scales with n (as we did above for svm but sizes need to be even smaller)
-```{r}
-sizes <- c(10, 50, 100)
-results <- matrix(NA, nrow=G, ncol=length(sizes))
-colnames(results) <- sizes
-rownames(results) <- c("Jet=0", "Jet=1", "Jet>=2")
-times <- results
+## Kernel SVM
+Running a small kernel SVM on each group. Unfortunately our implementation scales badly with n and so only small training and test sets can be used (predictions are also computational expensive).
 
-for(i in 1:length(sizes)){
-  n <- sizes[i] 
-  for(g in 1:G){
-    X_group <- X[group==g, !colnames(X) %in% features_to_rm[[g]]]
-    info_group <- info[group==g, ]
-  
-    ind <- c(rep(0, n), rep(1, nrow(X_group)-n))
-    kI <- sample(ind, nrow(X_group))
-    
-    X_train <- X_group[kI == 0,]
-    y_train <- info_group[kI == 0, "Y"] 
-    
-    X_test <- X_group[kI == 1,]
-    y_test <- info_group[kI == 1, "Y"] 
-    
-    w_test <- info_group[kI == 1, "Weight"]
-    w_test <- w_test * (sum(info$Weight)/sum(w_test))
-    
-    time_check<- function(){
-      model <- kernel_svm(X_train, y_train, C=1, ckernel = trig_kernel, b=3)
-      y_pred <- model(X_test)
-      return(y_pred)
-    }
-    
-    times[g, i] <- system.time(y_pred <- time_check())["elapsed"]
-    results[g, i] <- ams_metric(y_test, y_pred, w_test)
-  }
-}
-results
-times
+```{r, fig.width=5, fig.height=3.5}
+train_n <- 200
+test_n <- 2000
 
-plot_results(results, xlab="n", ylab="AMS")
-plot_results(times, xlab="n", ylab="Time (s)")
-```
+kernels <- list(
+  "Polynomial kernel" = tuned_kernel(poly_kernel, b=2),
+  "RBF kernel" = tuned_kernel(rbf_kernel, sigma=10),
+  "Trigonometric kernel" = tuned_kernel(trig_kernel, b=5),
+  "Linear kernel" = tuned_kernel(lin_kernel)
+)
 
-Compare different kernels
-```{r, eval=F}
-#store a list of functions so we can try different kernels in a loop
-f1 <- function(X, y){
-  f <- kernel_svm(X, y, C=1, ckernel = poly_kernel, b=2)
-}
-f2 <- function(X, y){
-  sigma <- avg_median_pairwise_distance(X_train)
-  f <- kernel_svm(X, y, C=2, ckernel = rbf_kernel, sigma=sigma)
-}
-f3 <- function(X, y){
-  f <- kernel_svm(X, y, C=3, ckernel = trig_kernel, b=2)
-}
-f4 <- function(X, y){
-  f <- svm(X, y, C=4)
-}
-funcs <- list("poly"=f1, "rbf"=f2, "trig"=f3, "linear"=f4)
+results <- as.data.frame(matrix(NA, nrow=G, ncol=length(kernels)+1))
+results[,1] <- groups
+colnames(results) <- c("Group", names(kernels))
 
-results <- matrix(NA, nrow=G, ncol=length(funcs))
-colnames(results) <- names(funcs)
-rownames(results) <- c("Jet=0", "Jet=1", "Jet>=2")
-
-#for each of the groups, see how the different kernel svms perform (on a small n)
-n <- 100
 for(g in 1:G){
-  X_group <- X[group==g, !colnames(X) %in% features_to_rm[[g]]]
-  info_group <- info[group==g, ]
-
-  ind <- c(rep(0, n), rep(1, nrow(X_group) - n))
-  kI <- sample(ind, nrow(X_group))
+  X_group <- X[info$Group==groups[[g]], !colnames(X) %in% features_to_rm[[g]]]
+  info_group <- info[info$Group==groups[[g]], ]
   
-  X_train <- X_group[kI != 1,]
-  y_train <- info_group[kI != 1, "Y"]
-
-  X_test <- X_group[kI == 1,]
-  y_test <- info_group[kI == 1, "Y"] 
-  
-  w_test <- info_group[kI == 1, "Weight"]
-  w_test <- w_test * (sum(info$Weight)/sum(w_test))
-  
-  for(m in 2:length(funcs)){
-    f <- funcs[[m]]
-    model <- f(X_train, y_train)
-    y_pred <- model(X_test)
-    results[g, m] <- ams_metric(y_test, y_pred, w_test)
+  for(k in 1:length(kernels)){
+    #create index training samples = 1, test samples = 2, other = 0
+    ind <- c(rep(1, train_n), rep(2, test_n), rep(0, nrow(X_group)-train_n-test_n))
+    kI <- sample(ind, nrow(X_group))
+      
+    X_train <- X_group[kI==1, ]
+    y_train <- info_group[kI==1, "Y"] 
+    
+    X_test <- X_group[kI==2, ]
+    y_test <- info_group[kI==2, "Y"] 
+    w_test <- info_group[kI==2, "Weight"]
+    
+    #scale data otherwise poly kernel has too large values
+    X_test_scaled <- scale_dat(X_test, X_train, add.intercept = F)
+    X_train_scaled <- scale_dat(X_train, X_train, add.intercept = F)
+    
+    ckernel <- kernels[[k]]
+    model <- kernel_svm(X_train_scaled, y_train, C=1, ckernel)
+    y_pred <- model(X_test_scaled)
+    results[g, k+1] <- calculate_ams_partition(y_test, y_pred, w_test, sum_w)
   }
 }
-results
-plot_results(results[,2:4], xlab="Kernel", ylab="AMS")
-#polynomial kernel fails when the data isnt scaled, but all the other models perform terribly when the data is scaled?
-#rbf is very slow, possibly due to the distance calcs in the large number of test predictions?
-#kernels may be performing poorly due to small samples, or poorly tuned hyperparamters?
+
+results %>%
+  pivot_longer(cols=-"Group", names_to="Test", values_to="AMS") %>%
+  ggplot(aes(x=Group, y=AMS, fill=Test)) +
+    geom_bar(position="dodge", stat = "identity", width=0.5) +
+    theme_minimal()
 ```
 
-
+The linear kernel outperforms the kernel SVM for all groups. This is likely because we have not tuned the hyperparameters of the kernels and the training set is too small for the complexity of the model.

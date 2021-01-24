@@ -121,7 +121,7 @@ poly_transform <- function(X, b=2){
         colnames(Xb) <- paste0(colnames(Xb), "^", i)
         X <- cbind(X, Xb)
     }
-    # #remove highly correlated variables - doesnt work
+    # #remove highly correlated variables
     # cors <- cor(X)
     # cors[!lower.tri(cors)] <- 0
     # X <- X[, !apply(cors,2,function(x) any(abs(x) > 0.80, na.rm=TRUE))]
