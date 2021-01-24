@@ -260,20 +260,23 @@ count_s <- function(y, y_hat, w) {
 count_b <- function(y, y_hat, w) {
     stopifnot(length(y) == length(y_hat))
     stopifnot(length(y) == length(w))
-    b <- sum(w[y == 0 & y_hat == 1])
+    b <- sum(w[y != 1 & y_hat == 1])
     return(b)
 }
 
-#' Calculate the AMS
+#' Calculate AMS metric
+#'
 #' @param y response vector
 #' @param y_hat predicted response vector
-#' @param w weights
-#' @param sum_w total sum of weights for renormalisation
+#' @param w weights of samples in y
+#' @param sum_w total sum of weights for re-normalisation.
+#' If sum_w is not provided the calculation assumes weights have already been rescaled.
+#'
 #' @return ams
 #' @export
 calculate_ams_partition <- function(y, y_hat, w, sum_w=NULL) {
   if (!is.null(sum_w)) {
-    w <- w * sum_w/sum(w)
+    w <- w * (sum_w/sum(w))
   }
   y_hat <- as.numeric(y_hat)
   s <- count_s(y, y_hat, w)

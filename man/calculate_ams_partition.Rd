@@ -2,7 +2,7 @@
 % Please edit documentation in R/utility_funcs.r
 \name{calculate_ams_partition}
 \alias{calculate_ams_partition}
-\title{Calculate the AMS}
+\title{Calculate AMS metric}
 \usage{
 calculate_ams_partition(y, y_hat, w, sum_w = NULL)
 }
@@ -11,13 +11,14 @@ calculate_ams_partition(y, y_hat, w, sum_w = NULL)
 
 \item{y_hat}{predicted response vector}
 
-\item{w}{weights}
+\item{w}{weights of samples in y}
 
-\item{sum_w}{total sum of weights for renormalisation}
+\item{sum_w}{total sum of weights for re-normalisation.
+If sum_w is not provided the calculation assumes weights have already been rescaled.}
 }
 \value{
 ams
 }
 \description{
-Calculate the AMS
+Calculate AMS metric
 }
