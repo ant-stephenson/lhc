@@ -118,6 +118,7 @@ permute_matrix <- function(X, r=1) {
 #' @return augmented matrix of covariates
 #' @export
 poly_transform <- function(X, b=2){
+  if (b=1) return(X)
   orig_cols <- colnames(X)
     for(i in 2:b){
         Xb <- apply(X[, orig_cols], 2, function(col) col^i)
