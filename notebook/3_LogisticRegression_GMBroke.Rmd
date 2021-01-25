@@ -42,7 +42,7 @@ C <- 1
 # number of jet/Higgs mass groups to build different models for
 G <- 3
 poly_order <- 2
-n_rbf <- 3
+n_rbf <- 0
 
 # AMS thresholds
 thresholds <- c(0.6, 0.4, 0.6)
@@ -116,7 +116,7 @@ cols2keep <- intersect(colnames(X), colnames(Xv))
 Xv <- Xv[, cols2keep]
 X <- X[, cols2keep]
 
-Xv <- scale_dat(Xv, X, na.rm=TRUE)
+#Xv <- scale_dat(Xv, X, na.rm=TRUE)
 ```
 
 Should we include interaction terms? Plot computation scaling as a function of number of initial features $d$ and order of polynomial terms of those to include, if we were to include all pairwise interactions.
@@ -309,16 +309,13 @@ dev.off()
 ## Run full model
 Fit model (for each category) on whole (unfolded) dataset
 ```{r full model}
-# loop over folds
-#create lists to hold the k models and k roc curves
-full_models <- vector("list", G)
-full_rocs <- vector("list", G)
+predictions <- rep(NA, length(Xv))
 rbf_idx <- matrix(NA, nrow=G, ncol=n_rbf)
-# check warnings?
+
 for (mj in 1:G) {
     # loop over sets of jet number {0, 1, 2+} and mH presence/absence
     j <- jet_cats[mj]
-    fit_row_idx <- idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
+    fit_row_idx <- idx_jet_cat(nj, j) #& idx_higgs_mass(X, mj, G)
         
     if (n_rbf > 0) {
       # add r RBF centroid features, using the same reference centroids in training and testing sets
@@ -328,124 +325,123 @@ for (mj in 1:G) {
       rbf_idx[mj, ] <- rbf_centroids$"idx"
       Xtrain <- add_rbf_features(X[fit_row_idx, ], s, n_rbf, Xi=Xi)
     } else {
-          Xtrain <- X[fit_row_idx, ]
+      Xtrain <- X[fit_row_idx, ]
     }
-    # get indices for columns to include for this jet category
-    col_idx <- get_valid_cols(colnames(Xtrain), features_to_rm, mj)
-    # standardize the data 
-    Xtrain <- as.matrix(Xtrain[, col_idx])
-    Xtrain <- scale_dat(Xtrain, Xtrain)
-    # get index of this model, from jet category and fold (to retrieve in results arrays)
-    model_idx <- get_model_idx(mj, 1, 1)
-    #fit a logistic regression model to the all of the training data
-    full_models[[model_idx]] <- model_init(X=Xtrain, y=y[fit_row_idx])
-}
-```
 
-Test on (until now unseen) validation set. Calling it validation as we can then use the summary metrics to check free parameters, being careful not to overdo it.
-```{r validation}
-amsv_obj <- vector("list", G)
-# check warnings
-sum_wv <- sum(wv)
-for (mj in 1:G) {
-    j <- jet_cats[mj]
-    test_row_idx <- idx_jet_cat(njv, j) & idx_higgs_mass(Xv, mj, G)
+    test_row_idx <- idx_jet_cat(njv, j)# & idx_higgs_mass(Xv, mj, G)
     if (n_rbf > 0) {
       # add r RBF centroid features, using the same reference centroids in training and testing sets
       Xi <- X[rbf_idx[mj, ], ]
       Xtest <- add_rbf_features(Xv[test_row_idx, ], s, n_rbf, Xi=Xi)
     } else {
-          Xtest <- Xv[test_row_idx, ]
+      Xtest <- Xv[test_row_idx, ]
     }
     
-    col_idx <- get_valid_cols(colnames(Xtest), features_to_rm, mj)
+    # get indices for columns to include for this jet category
+    col_idx <- get_valid_cols(colnames(Xtrain), features_to_rm, mj)
+    # standardize the data 
+    Xtrain <- as.matrix(Xtrain[, col_idx])
     Xtest <- as.matrix(Xtest[, col_idx])
-    model_idx <- get_model_idx(mj, 1, 1)
+    # Xtest <- scale_dat(Xtest, Xtrain)
+    # Xtrain <- scale_dat(Xtrain, Xtrain)
+    
+    #fit a logistic regression model to the all of the training data
+    model <- model_init(X=Xtrain, y=y[fit_row_idx])
+
     #use it to predict the classifications of the test data
-    p_hat <- full_models[[model_idx]]$predict(Xtest)
-    #create an ROC curve object
-    full_rocs[[model_idx]] <- ROC_curve$new(yv[test_row_idx], p_hat)
-    w_this_partition <- wv[test_row_idx] #* sum_wv/sum(wv[test_row_idx])
-    amsv_obj[[model_idx]] <- AMS_data$new(yv[test_row_idx], p_hat, w_this_partition)#, sum_w=sum_wv)
+    p_hat <- model$predict(Xtest)
+    
+    predictions[test_row_idx] <- p_hat
 }
+
+#create objects for overall results
+full_roc <- ROC_curve$new(yv, predictions)
+amsv_obj <- AMS_data$new(yv, predictions, wv)
+
+full_roc$plot_curve()
+amsv_obj$plot_ams()
+
+#if we use the threshold of 0.6 for each group we get an overall AMS of
+y_pred <- predictions >= 0.6
+ams_metric(yv, y_pred, wv)
 ```
 
 
-## Plot test metrics
-Plot ROC curves for each group on the validation set, with AUC for each.
-```{r plot validation auc}
-. <- sapply(full_rocs, function(x) x$calc_auc())
-aucv <- sapply(full_rocs, function(x) round(x$auc, 3))
-# pdf(file=path_join(c(fig_dir, "validation-auc-curves.pdf")))
-par(mar=c(4,4,4,4))
-if (do_save_outputs) {
-  save_fig(partial(plot_rocs, full_rocs, title=sprintf("All training data, %i-fold CV, AUC (%.3f, %.3f, %.3f)", K, round(aucv[1], 3), round(aucv[2], 3), round(aucv[3], 3))), 
-           path_join(c(fig_dir, "validation-auc-curves.pdf")))
-}
-plot_rocs(full_rocs, title=sprintf("All training data, %i-fold CV, AUC (%.3f, %.3f, %.3f)", K, round(aucv[1], 3), round(aucv[2], 3), round(aucv[3], 3)))
-# dev.off()
-```
-Now plotting the AMS thresholds for the validation set, we see that they differ substantially from those we saw in the training set, despite the K-fold CV. The validation set is much smaller than the full training set however, so we would expect it to be less reliable due to randomness in the data set. 
-```{r plot validation ams thresholds}
-amsv <- sapply(amsv_obj, function(x) x$calc_ams())
-if (do_save_outputs) {
-  save_fig(partial(plot_amss, amsv_obj, min.max=FALSE), 
-           path_join(c(fig_dir, "validation-ams-curves.pdf")))
-}
-# pdf(file=path_join(c(fig_dir, "validation-ams-curves.pdf")))
-plot_amss(amsv_obj, min.max=FALSE)
-# dev.off()
-```
-## Summary results
-Summary results:
-```{r print}
-get_threshold_ams <- function(ams_mat, G, K, thresholds) {
-  ams <- rep(NA, G * K)
-  for (g in 1:G) {
-    thresh_idx <- which.min(abs(ams_obj[[1]]$thresholds - thresholds[g]))
-    model_set <- ((g-1)*K+1):(g*K)
-    ams[model_set] <- ams_mat[thresh_idx, model_set]
-  }
-  return(ams)
-}
+<!-- ## Plot test metrics -->
+<!-- Plot ROC curves for each group on the validation set, with AUC for each. -->
+<!-- ```{r plot validation auc} -->
+<!-- . <- sapply(full_rocs, function(x) x$calc_auc()) -->
+<!-- aucv <- sapply(full_rocs, function(x) round(x$auc, 3)) -->
+<!-- # pdf(file=path_join(c(fig_dir, "validation-auc-curves.pdf"))) -->
+<!-- par(mar=c(4,4,4,4)) -->
+<!-- if (do_save_outputs) { -->
+<!--   save_fig(partial(plot_rocs, full_rocs, title=sprintf("All training data, %i-fold CV, AUC (%.3f, %.3f, %.3f)", K, round(aucv[1], 3), round(aucv[2], 3), round(aucv[3], 3))),  -->
+<!--            path_join(c(fig_dir, "validation-auc-curves.pdf"))) -->
+<!-- } -->
+<!-- plot_rocs(full_rocs, title=sprintf("All training data, %i-fold CV, AUC (%.3f, %.3f, %.3f)", K, round(aucv[1], 3), round(aucv[2], 3), round(aucv[3], 3))) -->
+<!-- # dev.off() -->
+<!-- ``` -->
+<!-- Now plotting the AMS thresholds for the validation set, we see that they differ substantially from those we saw in the training set, despite the K-fold CV. The validation set is much smaller than the full training set however, so we would expect it to be less reliable due to randomness in the data set.  -->
+<!-- ```{r plot validation ams thresholds} -->
+<!-- amsv <- sapply(amsv_obj, function(x) x$calc_ams()) -->
+<!-- if (do_save_outputs) { -->
+<!--   save_fig(partial(plot_amss, amsv_obj, min.max=FALSE),  -->
+<!--            path_join(c(fig_dir, "validation-ams-curves.pdf"))) -->
+<!-- } -->
+<!-- # pdf(file=path_join(c(fig_dir, "validation-ams-curves.pdf"))) -->
+<!-- plot_amss(amsv_obj, min.max=FALSE) -->
+<!-- # dev.off() -->
+<!-- ``` -->
+<!-- ## Summary results -->
+<!-- Summary results: -->
+<!-- ```{r print} -->
+<!-- get_threshold_ams <- function(ams_mat, G, K, thresholds) { -->
+<!--   ams <- rep(NA, G * K) -->
+<!--   for (g in 1:G) { -->
+<!--     thresh_idx <- which.min(abs(ams_obj[[1]]$thresholds - thresholds[g])) -->
+<!--     model_set <- ((g-1)*K+1):(g*K) -->
+<!--     ams[model_set] <- ams_mat[thresh_idx, model_set] -->
+<!--   } -->
+<!--   return(ams) -->
+<!-- } -->
 
-get_mean_mad_ams <- function(ams, G, K) {
-  mads <- rep(NA, G)
-  for (g in 1:G) {
-    model_set <- ((g-1)*K+1):(g*K)
-    mads[g] <- mad(ams[model_set])
-  }
-  return(mean(mads))
-}
+<!-- get_mean_mad_ams <- function(ams, G, K) { -->
+<!--   mads <- rep(NA, G) -->
+<!--   for (g in 1:G) { -->
+<!--     model_set <- ((g-1)*K+1):(g*K) -->
+<!--     mads[g] <- mad(ams[model_set]) -->
+<!--   } -->
+<!--   return(mean(mads)) -->
+<!-- } -->
 
-result_ams <- get_threshold_ams(ams, G, K, thresholds)
-mad_ams <- get_mean_mad_ams(result_ams, G, K)
+<!-- result_ams <- get_threshold_ams(ams, G, K, thresholds) -->
+<!-- mad_ams <- get_mean_mad_ams(result_ams, G, K) -->
 
-result_amsv <- get_threshold_ams(amsv, G, 1, thresholds)
+<!-- result_amsv <- get_threshold_ams(amsv, G, 1, thresholds) -->
 
-sprintf("Results for lambda=%.2g, G=%i, n_rbf=%i, K=%i on training set ('%s') and validation set ('%s')", lambda, G, n_rbf, K, train_label, val_label)
-sprintf("CV OOS AUC = %.2f ± %.1f", mean(auc), mad(auc))
-sprintf("CV OOS AMS = %.2f ± %.1f", mean(result_ams), mad_ams)
-sprintf("Validation set AUC = %.2f", mean(aucv))
-sprintf("Validation set AMS = %.2f", mean(result_amsv))
-```
-Save final results to a LaTeX table.
-```{r latex out, warning=FALSE, message=FALSE}
-library(Hmisc)
+<!-- sprintf("Results for lambda=%.2g, G=%i, n_rbf=%i, K=%i on training set ('%s') and validation set ('%s')", lambda, G, n_rbf, K, train_label, val_label) -->
+<!-- sprintf("CV OOS AUC = %.2f ± %.1f", mean(auc), mad(auc)) -->
+<!-- sprintf("CV OOS AMS = %.2f ± %.1f", mean(result_ams), mad_ams) -->
+<!-- sprintf("Validation set AUC = %.2f", mean(aucv)) -->
+<!-- sprintf("Validation set AMS = %.2f", mean(result_amsv)) -->
+<!-- ``` -->
+<!-- Save final results to a LaTeX table. -->
+<!-- ```{r latex out, warning=FALSE, message=FALSE} -->
+<!-- library(Hmisc) -->
 
-# keep top 5 rows
-output <- t(matrix(c(mean(auc), mad(auc), mean(result_ams), mad_ams, mean(aucv), NA, mean(result_amsv), NA), nrow=4))
-colnames(output) <- c("AUC", "mad.AUC", "AMS", "mad.AMS")
-output <- data.frame(output)
-output <- mutate_if(output, is.numeric, round, digits=3)
-row.names(output) <- c("CV OOS", "Test set")
+<!-- # keep top 5 rows -->
+<!-- output <- t(matrix(c(mean(auc), mad(auc), mean(result_ams), mad_ams, mean(aucv), NA, mean(result_amsv), NA), nrow=4)) -->
+<!-- colnames(output) <- c("AUC", "mad.AUC", "AMS", "mad.AMS") -->
+<!-- output <- data.frame(output) -->
+<!-- output <- mutate_if(output, is.numeric, round, digits=3) -->
+<!-- row.names(output) <- c("CV OOS", "Test set") -->
 
-# Generate LaTeX table
-if (do_save_outputs) {
-  latex(output, file=path_join(c(dirname(getwd()), "doc/final_results_table.tex")), caption=sprintf("Results for $\\lambda=%.2g$, $G=%i$, $n_{rbf}=%i$, $b=%i$, K=%i on training set (`%s') and validation set (`%s')", lambda, G, n_rbf, poly_order, K, train_label, val_label), label="table:final_results")
-}
-```
-\input{../doc/final_results_table}
+<!-- # Generate LaTeX table -->
+<!-- if (do_save_outputs) { -->
+<!--   latex(output, file=path_join(c(dirname(getwd()), "doc/final_results_table.tex")), caption=sprintf("Results for $\\lambda=%.2g$, $G=%i$, $n_{rbf}=%i$, $b=%i$, K=%i on training set (`%s') and validation set (`%s')", lambda, G, n_rbf, poly_order, K, train_label, val_label), label="table:final_results") -->
+<!-- } -->
+<!-- ``` -->
+<!-- \input{../doc/final_results_table} -->
 
 <!-- Save the output results to a .csv file. -->
 <!-- ```{r record to file} -->
