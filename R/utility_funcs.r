@@ -257,6 +257,19 @@ decide <- function(p, thresh = 0.5) {
     return(label)
 }
 
+#' #' Calculate AMS metric
+#' #'
+#' #' \eqn{s = sum_{i in B \cup G}w_i}
+#' #' \eqn{b = sum_{i in B \cup G}w_i};
+#' #' i.e. s is the sum of the weights of successful signal classifications (TP)
+#' #' and b is the sum of the weights of incorrect signal classifications (FP)
+#' #' @param s count of true positives
+#' #' @param b count of false positives
+#' ams_metric <- function(s, b) {
+#'     br <- 10
+#'     sqrt(2 * ((s + b + br) * log(1 + s/(b + br)) - s))
+#' }
+#'
 #' #' Count the number of true positives
 #' #' need to make sure dims of y, y_hat and w are the same
 #' #' @param y response vector

@@ -136,21 +136,17 @@ AMS_data <- setRefClass("AMS_data",
     y = "numeric",
     prob = "numeric",
     weights = "numeric",
-    Ns = "numeric",
-    Nb = "numeric",
     thresholds = "numeric",
     ams = "numeric",
     max_ams = "numeric",
     max_thresh = "numeric"
   ),
   methods = list(
-    initialize = function(y, prob, weights, Ns, Nb){
+    initialize = function(y, prob, weights){
       "Provide true sample lables, estimated probabilities, and sample weights. A vector of descision thresholds is initalised."
       .self$y <- as.numeric(y)
       .self$prob <- as.numeric(prob)
       .self$weights <- as.numeric(weights)
-      .self$Ns <- as.numeric(Ns)
-      .self$Nb <- as.numeric(Nb)
       .self$thresholds <- seq(0, 1, length.out = 30)
     },
     calc_ams = function(){
@@ -161,7 +157,7 @@ AMS_data <- setRefClass("AMS_data",
         #use each threshold to make a classification
         y_pred <- prob >= thresholds[i]
         #with these classifications calculate AMS
-        AMS[i] <- ams_metric(y, y_pred, weights, Ns=Ns, Nb=Nb)
+        AMS[i] <- ams_metric(y, y_pred, weights)
       }
       .self$ams <- AMS
     },
