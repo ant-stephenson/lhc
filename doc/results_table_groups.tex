@@ -1,14 +1,14 @@
-%latex.default(output, file = path_join(c(dirname(getwd()), "doc/results_table_groups.tex")),     caption = "Results table of top experiment for each of the groups",     label = "table:results")%
+%latex.default(output, file = path_join(c(dirname(getwd()), "doc/results_table_groups.tex")),     caption = "Results table of top experiment for each of the groups",     label = "table:results", rowname = NULL)%
 \begin{table}[!tbp]
 \caption{Results table of top experiment for each of the groups\label{table:results}} 
 \begin{center}
-\begin{tabular}{lrlllrlrrrrrr}
+\begin{tabular}{llllrrrr}
 \hline\hline
-\multicolumn{1}{l}{output}&\multicolumn{1}{c}{K}&\multicolumn{1}{c}{G}&\multicolumn{1}{c}{$n_{rbf}$}&\multicolumn{1}{c}{lambda}&\multicolumn{1}{c}{C}&\multicolumn{1}{c}{poly}&\multicolumn{1}{c}{auc}&\multicolumn{1}{c}{$mad_{auc}$}&\multicolumn{1}{c}{ams}&\multicolumn{1}{c}{$mad_{ams}$}&\multicolumn{1}{c}{$scaled_{auc}$}&\multicolumn{1}{c}{$scaled_{ams}$}\tabularnewline
+\multicolumn{1}{c}{G}&\multicolumn{1}{c}{$n_{rbf}$}&\multicolumn{1}{c}{lambda}&\multicolumn{1}{c}{poly}&\multicolumn{1}{c}{auc}&\multicolumn{1}{c}{ams}&\multicolumn{1}{c}{$mad_{ams}$}&\multicolumn{1}{c}{$scaled_{ams}$}\tabularnewline
 \hline
-1&$5$&1&1&0.00464&$1$&3&$0.888$&$0.005$&$2.505$&$0.097$&$180.907$&$25.859$\tabularnewline
-2&$5$&2&0&1e-04&$1$&3&$0.868$&$0.004$&$1.686$&$0.053$&$206.562$&$31.583$\tabularnewline
-3&$5$&3&1&10&$1$&3&$0.897$&$0.003$&$2.068$&$0.122$&$288.958$&$16.990$\tabularnewline
+1&1&0.00464&3&$0.888$&$2.505$&$0.097$&$25.859$\tabularnewline
+2&0&1e-04&3&$0.868$&$1.686$&$0.053$&$31.583$\tabularnewline
+3&1&10&3&$0.897$&$2.068$&$0.122$&$16.990$\tabularnewline
 \hline
 \end{tabular}\end{center}
 \end{table}

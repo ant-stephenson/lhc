@@ -1,9 +1,11 @@
 ---
-title: "Analyse Experiments"
-author: "Anthony Stephenson"
-date: "1/18/2021"
+title: "3. Analyse Experiments"
 output: pdf_document
 ---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo=T, fig.align = "center", cache=T)
+```
 
 ```{r import4, echo=FALSE, warning=FALSE, message=FALSE}
 library(ggplot2)
@@ -19,7 +21,7 @@ As mentioned previously, we ran a series of experiments running a logistic regre
 ## Import results
 ```{r import}
 filepath <- path_join(c(dirname(getwd()), "/output/results_6.csv"))
-exp_data <- read.csv(filepath) %>% select(-X)
+exp_data <- read.csv(filepath) %>% select(-X, -C, -K)
 ```
 
 Experiments were run over all combinations of the following parameters:
@@ -55,7 +57,7 @@ exp_data[cols] <- lapply(exp_data[,cols], factor)
     geom_boxplot() +
     theme_minimal() +
     labs(x="Number of RBF features", y="AMS",
-         title="AMS of models with n RBF features",
+         title="AMS of experiments with varying RBF features",
          colour="Jet Group"))
 
 (p2 <- exp_data %>%
@@ -63,7 +65,7 @@ exp_data[cols] <- lapply(exp_data[,cols], factor)
     geom_boxplot() + 
     theme_minimal() +
     labs(x="Order of polynomial transform", y="AMS",
-         title="AMS of models with b degree polynomal transform",
+         title="AMS of experiments with varying polynomal transform",
          colour="Jet Group"))
 
 (p3 <- exp_data %>%
@@ -71,7 +73,7 @@ exp_data[cols] <- lapply(exp_data[,cols], factor)
     geom_boxplot() + 
     theme_minimal() +
     labs(x="Strength of l2 regularisation", y="AMS",
-         title="AMS of models with lambda regularisation",
+         title="AMS of experiments with varying l2 regularisation",
          colour="Jet Group"))
 ```
 
@@ -84,7 +86,7 @@ pdf("../doc/figs/Experiments_poly.pdf", width=5, height=4)
 p2
 dev.off()
 pdf("../doc/figs/Experiments_lambda.pdf", width=5, height=4)
-p1
+p3
 dev.off()
 ```
 
@@ -97,25 +99,23 @@ library(Hmisc)
 #For each group find the experiment with the highest ams
 output <- NULL
 for(i in 1:3){
-  # exp_sub <- filter(exp_data, G==i) %>%
-  #   arrange(desc(scaled.ams), desc(scaled.auc))
-  
   exp_sub <- filter(exp_data, G==i) %>%
     arrange(desc(ams))
   
   output <- rbind(output, exp_sub[1,])
 }
 
-print(output)
+#filter columns
+output <- select(output, 
+                 G, n_rbf, lambda, poly, auc, ams, mad.ams., scaled.ams)
+output[,5:8] <- round(output[,5:8], 3)
 
 # make column names latex friendly
 colnames(output) <- sub("(\\w+)\\.(\\w+)\\.?", "\\$\\1_\\{\\2\\}\\$", colnames(output))
 colnames(output) <- sub("n\\_rbf", "\\$n_{rbf}\\$", colnames(output))
 
-output[7:12] <- round(output[7:12], 3)
-
 # Generate LaTeX table
-latex(output, file=path_join(c(dirname(getwd()), "doc/results_table_groups.tex")), caption="Results table of top experiment for each of the groups", label="table:results")
+latex(output, file=path_join(c(dirname(getwd()), "doc/results_table_groups.tex")), caption="Results table of top experiment for each of the groups", label="table:results", rowname = NULL)
 ```
 \input{../doc/results_table}
 

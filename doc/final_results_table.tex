@@ -1,13 +1,13 @@
-%latex.default(output, file = path_join(c(dirname(getwd()), "doc/final_results_table.tex")),     caption = sprintf("Results for $\\lambda=%.2g$, $G=%i$, $n_{rbf}=%i$, $b=%i$, K=%i on training set (`%s') and validation set (`%s')",         lambda, G, n_rbf, poly_order, K, train_label, val_label),     label = "table:final_results")%
+%latex.default(output, file = path_join(c(dirname(getwd()), "doc/final_results_table.tex")),     caption = sprintf("Results for $\\lambda=(%.2g, %.2g, %.2g)$, $G=%i$, $n_{rbf}=(%i, %i, %i)$, $b=(%i, %i, %i)$, K=%i on training set (`%s') and validation set (`%s')",         lambda[1], lambda[2], lambda[3], G, n_rbf[1], n_rbf[2],         n_rbf[3], poly_order[1], poly_order[2], poly_order[3],         K, train_label, val_label), label = "table:final_results")%
 \begin{table}[!tbp]
-\caption{Results for $\lambda=0.0001$, $G=3$, $n_{rbf}=3$, $b=2$, K=10 on training set (`t') and validation set (`v')\label{table:final_results}} 
+\caption{Results for $\lambda=(0.0046, 0.0001, 10)$, $G=3$, $n_{rbf}=(1, 0, 1)$, $b=(3, 3, 3)$, K=10 on training set (`t') and validation set (`v')\label{table:final_results}} 
 \begin{center}
 \begin{tabular}{lrrrr}
 \hline\hline
 \multicolumn{1}{l}{output}&\multicolumn{1}{c}{AUC}&\multicolumn{1}{c}{mad.AUC}&\multicolumn{1}{c}{AMS}&\multicolumn{1}{c}{mad.AMS}\tabularnewline
 \hline
-CV OOS&$0.869$&$0.01$&$3.017$&$0.168$\tabularnewline
-Test set&$0.845$&$$&$2.738$&$$\tabularnewline
+CV OOS&$0.821$&$0.052$&$2.029$&$0.072$\tabularnewline
+Test set&$0.833$&$$&$1.998$&$$\tabularnewline
 \hline
 \end{tabular}\end{center}
 \end{table}

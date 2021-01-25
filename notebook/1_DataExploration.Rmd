@@ -137,8 +137,8 @@ for(i in 1:k){
 
 par(mfrow=c(1,2))
 par(mar=c(4,4,2,1))
-plot_rocs(rocs, cex.main=0.8, cex.lab=0.8, cex.axis=0.8)
-plot_amss(amss, cex.main=0.8, cex.lab=0.8, cex.axis=0.8)
+plot_rocs(rocs, scale=0.8)
+plot_amss(amss, scale=0.8)
 ```
 
 We can see the logistic regression model has low variance between folds and a reasonable average AUC. 
@@ -353,8 +353,8 @@ for(g in 1:G){
     amss[[i]] <- AMS_data$new(y_test, prob, w_test)
   }
   
-  plot_rocs(rocs, info=groups[g], cex.main=0.8, cex.lab=0.8, cex.axis=0.8)
-  plot_amss(amss, info=groups[g], cex.main=0.8, cex.lab=0.8, cex.axis=0.8)
+  plot_rocs(rocs, info=groups[g], scale=0.8)
+  plot_amss(amss, info=groups[g], scale=0.8)
 }
 ```
 
@@ -403,8 +403,8 @@ for(g in 1:G){
     amss[[i]] <- AMS_data$new(y_test, prob, w_test)
   }
   
-  plot_rocs(rocs, info=groups[g], cex.main=0.8, cex.lab=0.8, cex.axis=0.8)
-  plot_amss(amss, info=groups[g], cex.main=0.8, cex.lab=0.8, cex.axis=0.8)
+  plot_rocs(rocs, info=groups[g], scale=0.8)
+  plot_amss(amss, info=groups[g], scale=0.8)
 }
 ```
 

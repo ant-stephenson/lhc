@@ -32,16 +32,13 @@ Set script parameters:
 set.seed(22)
 
 # Regularisation (L2) parameter [global]
-lambda <- c(1e-4, 1e-4, 20)
+lambda <- c(0.00464, 1e-4, 10)
 # constraint parameter for L1 Logistic regression [global]
 C <- 1
 # number of jet/Higgs mass groups to build different models for
 G <- 3
 poly_order <- c(3, 3, 3) 
-n_rbf <- c(0, 0, 0)
-
-# AMS thresholds
-thresholds <- c(0.7, 0.6, 0.7)
+n_rbf <- c(1, 0, 1)
 
 # choose model. Interchangeable so long as we have implemented polymorphism 
 # across the model classes so that they share a common interface. Use "partial" 
@@ -232,6 +229,9 @@ for(j in 1:G){
   plot_rocs(rocs[i1:i2], info=groups[j])
   plot_amss(ams_obj[i1:i2], info=groups[j])
 }
+
+#select decision thresholds for each group based on CV results
+thresholds <- c(0.6, 0.4, 0.7)
 ```
 
 ```{r, include=F, echo=F}
@@ -261,7 +261,7 @@ dev.off()
 
 ## Run full model
 Fit model (for each category) on whole (unfolded) dataset
-```{r full model}
+```{r, fig.width=5, fig.height=3.5}
 predictions <- rep(NA, length(Xv))
 rbf_idx <- matrix(NA, nrow=G, ncol=n_rbf)
 

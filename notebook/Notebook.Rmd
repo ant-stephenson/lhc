@@ -9,7 +9,7 @@ output:
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-do_save_outputs <- FALSE
+do_save_outputs <- TRUE
 ```
 
 ```{r child = '1_DataExploration.Rmd'}
@@ -18,9 +18,8 @@ do_save_outputs <- FALSE
 ```{r child = '2_SVM.Rmd'}
 ```
 
-```{r child = '3_LogisticRegression.Rmd'}
-```
-
 ```{r child = '4_Results.Rmd'}
 ```
 
+```{r child = '3_LogisticRegression.Rmd'}
+```
