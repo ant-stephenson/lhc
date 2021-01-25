@@ -146,6 +146,7 @@ Since we have a free parameter $c$ that determines the optimal value $\lambda^\s
 \label{algo:line}
 
 \subsection{SVM}
+\label{app:svm}
 \subsubsection{Soft-margin SVM}
 For a dataset $D=\{(\textbf{x}_i, y_i)\}_{i=1}^n$, $\textbf{x} \in \mathbb{R}^d$, $y_i \in \{-1, +1\}$, support vector machines (SVM) aim to find the optimal hyperplane which separates samples of each class $y$. The optimal hyperplane $f(\textbf{x}, \textbf{w}) = \textbf{w}^T \textbf{x} + w_0 = 0$ classifies all samples correctly and has the largest distance to the nearest sample. The parameters $\textbf{w}$ and $w_0$ are found by solving the following optimisation problem:
 \begin{align}

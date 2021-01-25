@@ -89,7 +89,8 @@ where s is the sum of the sample weights of true positives $s = \sum_{i; y_i=s, 
 In our package `lhc`, we have defined two reference class objects to store data related to the ROC and AMS performance measures `ROC_curve` and `AMS_data`. We have also defined plotting functions to plot multiple ROC curves or AMS metrics on the same axes in order to visualise the variance of models during cross validation.
 
 ```{r}
-#when we take a subset of samples, weights need to be renormalised so the sum of signal weights = Ns and sum of background weights = Nb, where
+#when we take a subset of samples, weights need to be renormalised
+#so the sum of signal weights = Ns and sum of background weights = Nb
 Ns <- sum(info$KaggleWeight[info$Label=="s"])
   #or sum(all_info$Weight[all_info$Label=="s"]) as the two are equal
 Nb <- sum(info$KaggleWeight[info$Label=="b"]) 
@@ -311,7 +312,7 @@ pca <- prcomp(na.omit(t(X_temp)), scale.=T, center=T)
 X_transformed <- pca$rotation
 
 idx <- sample(1:nrow(X_temp), 10000)
-pairs(X_transformed[idx,1:5], lower.panel = NULL, pch=20, col=info_temp[idx, "Y"]+1)
+pairs(X_transformed[idx,1:4], lower.panel = NULL, pch=20, col=info_temp[idx, "Y"]+1)
 ```
 
 ## Baseline model per group

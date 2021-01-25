@@ -12,6 +12,8 @@ plot_amss(amss, title = NULL, info = "", min.max = TRUE, scale = 0.8)
 \item{title}{str title to give plot, if null a default title is generated}
 
 \item{info}{additional info to add to the default title}
+
+\item{scale}{controls plot cex arguments to size text}
 }
 \description{
 define a function to plot multiple ams objects on the same axes

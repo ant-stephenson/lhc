@@ -57,7 +57,7 @@ names(features_to_rm) <- groups
 # SVM 
 In the `lhc` package we have implemented two support vector machine (SVM) algorithms: `svm` and `kernel_svm`. In this section of the notebook we attempt to apply these methods to the Higgs boson classification problem. 
 
-It is expected that soft-margin SVM will have a similar performance to logistic regression. Kernel SVM could improve performance by transforming the data and creating a non linear decision boundary. Unfortunately, SVM algorithms do not scale well with n and so we are unlikely to be able to train our models on a significant portion of the training data.
+It is expected that soft-margin SVM will have a similar performance to logistic regression. Kernel SVM could improve performance by transforming the data and creating a non-linear decision boundary. Unfortunately, SVM algorithms do not scale well with n and so we are unlikely to be able to train our models on a significant portion of the training data.
 
 Our SVM functions take as inputs: an $n \times d$ design matrix $\textbf{X}$, binary class labels $\textbf{y} \in \{-1, 1\}^n$, a parameter $C$ to controls the relative weighting of maximising the margin vs minimising the slack variables. For `kernel_svm` a kernel function $k$ is also needed. 
 
@@ -69,7 +69,7 @@ For `kernel_svm`, $\textbf{XX}^T$ is replaced with $\textbf{K}$, where $K_{ij} =
 
 Finally, the functions return a function/trained model which predicts the classes of new samples. For example, the prediction function for the soft-margin SVM takes the form $y_i = \textbf{w}^T \textbf{x}_i + w_0$.
 
-SVM algorithms return the predicted class of samples $\hat{y}_i$ not the probability $P(y_i=s | \textbf{x}_i)$. This means we cannot us our `ROC_curve` and `AMS_data` object classes which vary a decision threshold, and we so calculate a single AMS value for the test set.
+SVM algorithms return the predicted class of samples $\hat{y}_i$ not the probability $P(y_i=s | \textbf{x}_i)$. This means we cannot use our `ROC_curve` and `AMS_data` object classes which vary a decision threshold, and we so calculate a single AMS value for the test set.
 
 ## Soft-margin SVM
 First we run a first pass of the soft-margin SVM on each of our groups using a small training set. We test how standardising the data before fitting affects performance, and how performance compares to chance (random assignment of classes).
@@ -246,16 +246,20 @@ plot_data <- results %>%
   pivot_longer(cols=-"Group", names_to="Model", values_to="AMS") %>%
   mutate(Ensemble = grepl("Ensemble", Model))
 
-ggplot(plot_data[!plot_data$Ensemble,], aes(x=Group, y=AMS, colour=Group)) +
+p <- ggplot(plot_data[!plot_data$Ensemble,], aes(x=Group, y=AMS, colour=Group)) +
   geom_boxplot() +
   geom_point(data=plot_data[plot_data$Ensemble,], aes(fill=Ensemble), colour="black") +
   theme_minimal()
+
+pdf("../doc/figs/Ensemble_SVM.pdf", width=5, height=4)
+p
+dev.off()
 ```
 
 The ensemble SVM outperforms the individual models and and scales better with n, however the improvements in AMS are fairly modest. 
 
 ## Kernel SVM
-Running a small kernel SVM on each group. Unfortunately our implementation scales badly with n and so only small training and test sets can be used (predictions are also computational expensive).
+Now we test out our implementation of kernel SVM, with a selection of different kernels on each group. Unfortunately our implementation scales badly with n and so only small training and test sets can be used (predictions are also computational expensive).
 
 ```{r, fig.width=5, fig.height=3}
 train_n <- 200
