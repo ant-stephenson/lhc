@@ -168,14 +168,14 @@ To finally choose our best performing model, we needed to define the criterion w
 
 \input{results_table_groups}
 
-To try and determine how reliable our performance assessment might be, we plotted some figures for both performance measures (AUC and AMS) against varying regularisation, numbers of RBF centroids and order of polynomials. Restricting this summary analysis to our preferred metric, the scaled AMS, we see a noisy but somewhat consistent result in the boxplots in figure~\ref{fig:boxes}. The results for $n_{rbf}$ are particularly unclear, with a high degree of variability, whilst the polynomial results, although variable between experiments, show a decisive improvement for 2nd order polynomials. Based on these and the top experiments, we opted for a final model of the following parameters:
+To try and determine how reliable our performance assessment might be, we plotted some figures for both performance measures (AUC and AMS) against varying regularisation, numbers of RBF centroids and order of polynomials. Restricting this summary analysis to our preferred metric, the scaled AMS, we see a noisy but somewhat consistent result in the boxplots in figure~\ref{fig:boxes}. The results for $n_{rbf}$ are particularly unclear, with a high degree of variability, whilst the polynomial results, although variable between experiments, show a decisive improvement for 2nd order polynomials. Based on these and the top experiments, we opted for the final set of models with the following parameters:
 \eq{
-    \lambda &= 1\times 10^{-4} \\
-    b &= 2 \\
-    n_{rbf} &= 3 \\
-    \bm{\theta} &= (0.6, 0.4, 0.6)
+    \bm{\lambda} &= (0.00464, 1\times 10^{-4}, 10) \\
+    \bm{b} &= (3, 3, 3) \\
+    \bm{n_{rbf}} &= (1, 0, 1) \\
+    \bm{\theta} &= (0.6, 0.4, 0.7)
 }
-for regularisation parameter $\lambda$, polynomial order $b$, number of RBF centroids $n_{rbf}$ and vector of jet group AMS thresholds $\bm{\theta} = (\theta_{j=0}, \theta_{j=1}, \theta_{j=2+})$.
+for regularisation parameter $\bm{lambda}=(\lambda_{j=0}, \lambda_{j=1}, \lambda={j=2+})$, polynomial order $\bm{b}=(b_{j=0}, b_{j=1}, b_{j=2+})$, number of RBF centroids $\bm{n_{rbf}}=(n_{rbf,j=0}, n_{rbf,j=1}, n_{rbf,j=2+})$ and vector of jet group AMS thresholds $\bm{\theta} = (\theta_{j=0}, \theta_{j=1}, \theta_{j=2+})$.
 
 \begin{figure}[h]
     \centering
