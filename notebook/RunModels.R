@@ -1,3 +1,4 @@
+
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -8,35 +9,29 @@ library(lhc)
 
 ## ----load data---------------------------------------------------------------------------------------------------------------------------------------------------------------------------
 # divide data into training kaggle set, and retain hold-out (before further cross-validation partitioning)
-source_path <- path_join(c(path_dir(getwd())))
-filename <- "atlas-higgs-challenge-2014-v2.csv"
-filepath <- path_join(c(source_path, "LHC_dump", "R", filename))
+filepath <- "../atlas-higgs-challenge-2014-v2.csv"
+
 data <- import_data(filepath)
+train_idx <- get_subset_idx(data$kaggle_s, "t")
+y <- data$y[train_idx]
+# need to use kaggle weights to make AMS correct
+kaggle_w <- data$kaggle_w[train_idx]
+w <- data$kaggle_w[train_idx]
+nj <- data$nj[train_idx]
+G=3
 
 # function just to loop over fitting procedure with various input parameters to faciliate running experiments over parameter space (e.g. a gridsearch)
-run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, lambda, C=1, results_label=2, poly_order=1) {
+run_models <- function(K, n_rbf, lambda, C, poly_order) {
 
-  ## ----training set------------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  train_idx <- get_subset_idx(data$kaggle_s, train_label)
-  X <- data$X[train_idx, ]
-  y <- data$y[train_idx]
-  # need to use kaggle weignts to make AMS correct?!
-  kaggle_w <- data$kaggle_w[train_idx]
-  w <- data$kaggle_w[train_idx]
-  nj <- data$nj[train_idx]
-  e_id <- data$e_id[train_idx]
-
-
-  ## ----add features------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   # modify features
+  X <- data$X[train_idx, ]
   X <- reduce_features(X)
   X <- invert_angle_sign(X)
 
-  # add polynomial transformations of order poly_order to our covariates
+  #add polynomial transformations of order poly_order to our covariates
   if (poly_order > 1) {
     X <- poly_transform(X, poly_order)
   }
-
 
   ## ----init params-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   s <- avg_median_pairwise_distance(X)
@@ -48,13 +43,10 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
   n <- nrow(X)
   d <- ncol(X) + n_rbf
 
-  # sum weights for to renormalise for AMS in partitions
-  sum_w <- sum(w)
-
   ## ----jet/missing-------------------------------------------------------------------------------------------------------------------------------------------------------------------------
   # get missing rows. separate by number of jets and presence of Higgs mass and fit separate models
   # find columns with features with any missing values for each number of jets: 0, 1, 2+ in combination with the presence (or absence) of the Higgs mass, defined by j=1,2,3, 4, 5, 6. i.e. j=1 => nj=0 & mH != -999, j=2 =>
-  jet_cats <- c(1:3, 1:3)
+  jet_cats <- 1:3
   features_to_rm <- set_features_to_rm(X, G, kI, nj)
 
   ## ----fitting-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------
@@ -71,8 +63,8 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
     # loop over sets of jet number {0, 1, 2+} and mH presence/absence
     for (k in 1:K) {
       j <- jet_cats[mj]
-      fit_row_idx <- kI != k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
-      test_row_idx <- kI == k & idx_jet_cat(nj, j) & idx_higgs_mass(X, mj, G)
+      fit_row_idx <- kI != k & idx_jet_cat(nj, j)
+      test_row_idx <- kI == k & idx_jet_cat(nj, j)
 
       # add r RBF centroid features, using the same reference centroids in training and testing sets
       if (n_rbf > 0) {
@@ -100,7 +92,7 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
       model_idx <- get_model_idx(mj, k, K)
 
       #fit a logistic regression model to the CV training data
-      models[[model_idx]] <- model_init(X=Xtrain, y=y[fit_row_idx])
+      models[[model_idx]] <- logistic_model$new(X=Xtrain, y=y[fit_row_idx], lambda)
 
       #use it to predict the classifications of the test data
       p_hat <- models[[model_idx]]$predict(Xtest)
@@ -109,43 +101,28 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
       rocs[[model_idx]] <- ROC_curve$new(y[test_row_idx], p_hat)
 
       # create an AMS object
-      w_this_partition <- w[test_row_idx] * sum_w/sum(w[test_row_idx])
+      w_this_partition <- w[test_row_idx]
       ams_obj[[model_idx]] <- AMS_data$new(y[test_row_idx], p_hat, w_this_partition)
     }
   }
 
-
-  ## ----avg auc and plot roc----------------------------------------------------------------------------------------------------------------------------------------------------
+  #get auc and ams from objects
   auc <- sapply(rocs, function(x) x$calc_auc())
-
-  ## ----avg ams and plot roc----------------------------------------------------------------------------------------------------------------------------------------------------
   ams <- sapply(ams_obj, function(x) x$calc_ams())
 
-  get_mean_mad_ams <- function(ams, G, K) {
-    mads <- rep(NA, G)
-    for (g in 1:G) {
-      model_set <- ((g-1)*K+1):(g*K)
-      mads[g] <- mean(apply(ams[, model_set], 1, mad))
-    }
-    return(mean(mads))
+  #get results for each group
+  mean_auc <- mean_ams <- mad_ams <- mad_auc <- rep(NA, G)
+  for (g in 1:G) {
+    model_set <- ((g-1)*K+1):(g*K)
+    mean_ams[g] <- mean(ams[,model_set])
+    mean_auc[g] <- mean(auc[model_set])
+    mad_ams[g] <- mean(apply(ams[, model_set], 1, mad))
+    mad_auc[g] <- mad(auc[model_set])
   }
 
-  mad_ams <- get_mean_mad_ams(ams, G, K)
-
-  ## ----record to file----------------------------------------------------------------------------------------------------------------------------------------------------------------------
-  filename <- sprintf(path_join(c(getwd(), "output/results_%s.csv")), results_label)
-  model_type <- class(models[[1]])[1]
-  if (!file.exists(filename)){
-    result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "model_type"=model_type, "n_rbf"=n_rbf, "lambda"=lambda, "c"=C, "poly"=poly_order, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad_ams)#, "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
-    write.table(as.data.frame(result), file = filename, append = TRUE, sep = ",",
-                eol = "\n", na = "NA", dec = ".", row.names = FALSE,
-                col.names = TRUE, qmethod = c("escape", "double"))
-  } else {
-    result <- list("Train"=train_label, "Validation"=val_label, "K"=K, "G"=G, "model_type"=model_type, "n_rbf"=n_rbf, "lambda"=lambda, "c" = C, "poly"=poly_order, "auc"=mean(auc), "mad(auc)"=mad(auc), "ams"=mean(ams), "mad(ams)"=mad_ams)#, "aucv"=mean(aucv), "mad(aucv)"=mad(aucv), "amsv"=mean(amsv), "mad(amsv)"=mad(amsv))
-    write.table(as.data.frame(result), file = filename, append = TRUE, sep = ",",
-                eol = "\n", na = "NA", dec = ".", row.names = FALSE,
-                col.names = FALSE, qmethod = c("escape", "double"))
-  }
+  result <- data.frame("K"=K, "G"=1:3, "n_rbf"=n_rbf, "lambda"=lambda, "C"=C, "poly"=poly_order,
+                       "auc"=mean_auc, "mad(auc)"=mad_auc, "ams"=mean_ams, "mad(ams)"=mad_ams)
+  return(result)
 }
 
 # set parameter combinations
@@ -153,33 +130,25 @@ logspace <- function(min, max, n) {
   exp(seq(log(min), log(max), length.out = n))
 }
 
-train_label <- c("t")
-val_label <- c("b")
-K <- 10
-G <- 3
-n_rbf <- 0:5
-lambda <- logspace(1e-4, 20, 15)
-C <- 1#logspace(1, 100, 5)
-poly_order <- 3
-# L1 logistic regression (using CVXR)
-# rm(logistic)
-# model_init <- partial(logistic_l1_model$new, C=C)
-results_label <- "experiments5"
+n_rbf <- c(0, 1, 2, 3)
+lambda <- logspace(1e-4, 10, 4)
+C <- 1
+poly_order <- 1:3
+
+params <- expand.grid(n_rbf, lambda, C, poly_order)
+colnames(params) <- c("n_rbf", "lambda", "C", "poly_order")
 
 library(foreach)
 library(doParallel)
 registerDoParallel(4)
 
-n_grid_2 <- length(lambda)
-
 # run them all
-for (poly_order in 1:3) {
-  foreach (i=1:length(n_rbf)) %dopar% {
-    for (ii in 1:n_grid_2) {
-      print(c(poly_order, i, ii))
-      model_init <- partial(logistic_model$new, lambda=lambda[ii])
-      # model_init <- partial(logistic_l1_model$new, C=C[ii])
-      run_models(model_init, data, train_label, val_label, K, G, n_rbf[i], lambda[ii], C[ii], results_label=results_label, poly_order=poly_order)
-    }
-  }
+results <- NULL
+foreach (i=1:nrow(params)) %dopar% {
+  print(i)
+  res <- run_models(K=5, n_rbf = params[i,1], lambda = params[i,2], C=params[i,3], poly_order=params[i,4])
+  results <- rbind(results, res)
+  write.table(res, "output/results_6.csv", sep = ",", col.names = !file.exists("output/results_6.csv"), append = T)
 }
+
+#write.csv(results, file="output/results_6.csv")
