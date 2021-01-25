@@ -50,8 +50,7 @@ library(kableExtra)
 ## Load dataset 
 ```{r}
 #get the filepath of the dataset
-filepath <- list.files(path="~", pattern="atlas-higgs-challenge-2014-v2.csv", 
-                       full.names=T, recursive=T)
+filepath <- "../../atlas-higgs-challenge-2014-v2.csv"
 
 #fast load the raw data
 raw_data <- data.table::fread(filepath)
