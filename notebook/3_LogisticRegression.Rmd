@@ -140,7 +140,7 @@ features_to_rm <- set_features_to_rm(X, G, kI, nj)
 ```
 
 ## Run CV experiments
-Now we run our cross-validation experiment, looping over jet groups and folds and fitting a model for each (so $GK$ in total) and then test each of these on their OOS subset, recording AUC and AMS.
+Now we run our cross-validation experiment, looping over jet groups and folds and fitting a model for each (so $GK$ in total) and then test each of these on their OOS subset, recording AUC and AMS. For each model on each subset of data, we also allow the option of augmenting the data-set with polynomial transformations of our starting feature set as well as the addition of a prespecified number of RBF centroid features. Once this is done, the model selects the relevant columns of the augmented dataset for that particular model, standardises these data (using the training set as a reference) and then uses these final data matricies to fit and test on.
 ```{r fitting}
 # loop over folds
 #create lists to hold the k models and k roc curves
