@@ -1,4 +1,3 @@
-
 library(ggplot2)
 library(dplyr)
 library(tidyr)
@@ -33,7 +32,7 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
   X <- reduce_features(X)
   X <- invert_angle_sign(X)
 
- # add polynomial transformations of order poly_order to our covariates
+  # add polynomial transformations of order poly_order to our covariates
   if (poly_order > 1) {
     X <- poly_transform(X, poly_order)
   }
@@ -122,16 +121,16 @@ run_models <- function(model_init, data, train_label, val_label, K, G, n_rbf, la
   ## ----avg ams and plot roc----------------------------------------------------------------------------------------------------------------------------------------------------
   ams <- sapply(ams_obj, function(x) x$calc_ams())
 
-get_mean_mad_ams <- function(ams, G, K) {
-  mads <- rep(NA, G)
-  for (g in 1:G) {
-    model_set <- ((g-1)*K+1):(g*K)
-    mads[g] <- mean(apply(ams[, model_set], 1, mad))
+  get_mean_mad_ams <- function(ams, G, K) {
+    mads <- rep(NA, G)
+    for (g in 1:G) {
+      model_set <- ((g-1)*K+1):(g*K)
+      mads[g] <- mean(apply(ams[, model_set], 1, mad))
+    }
+    return(mean(mads))
   }
-  return(mean(mads))
-}
 
-mad_ams <- get_mean_mad_ams(ams, G, K)
+  mad_ams <- get_mean_mad_ams(ams, G, K)
 
   ## ----record to file----------------------------------------------------------------------------------------------------------------------------------------------------------------------
   filename <- sprintf(path_join(c(getwd(), "output/results_%s.csv")), results_label)
