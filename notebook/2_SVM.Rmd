@@ -86,9 +86,6 @@ results <- as.data.frame(matrix(NA, nrow=G, ncol=4))
 results[,1] <- groups
 colnames(results) <- c("Group", "SVM", "Scaled SVM", "Chance")
 
-#find the total weights for rescaling in AMS calculations
-sum_w <- sum(info$Weight)
-
 #loop through the groups
 n <- 500
 for(g in 1:G){
@@ -114,7 +111,7 @@ for(g in 1:G){
   y_pred <- model(X_test)
   
   #calculate AMS
-  results[g, 2] <- calculate_ams_partition(y_test, y_pred, w_test, sum_w)
+  results[g, 2] <- ams_metric(y_test, y_pred, w_test)
   
   #scale the training data, and scale the test data with the same transformation
   X_test_scaled <- scale_dat(X_test, X_train, add.intercept = F)
@@ -123,11 +120,11 @@ for(g in 1:G){
   #train a model on scaled data and calculate AMS
   model <- svm(X_train_scaled, y_train, C=1)
   y_pred_scaled <- model(X_test_scaled)
-  results[g, 3] <- calculate_ams_partition(y_test, y_pred_scaled, w_test, sum_w)
+  results[g, 3] <- ams_metric(y_test, y_pred_scaled, w_test)
   
   #randomly assign classes and calculate AMS
   y_rand <- sample(c(-1, 1), length(y_test), replace=T)
-  results[g, 4] <- calculate_ams_partition(y_test, y_rand, w_test, sum_w)
+  results[g, 4] <- ams_metric(y_test, y_rand, w_test)
 }
 
 results %>%
@@ -137,9 +134,7 @@ results %>%
     theme_minimal()
 ```
 
-Interestingly, the SVM models trained on only `r n` samples perform almost as well as the logistic regression. It's likely that this is around the best performance possible with a linear boundary. 
-
-The three groups have different chance performance which is likely due to the different proportions of signal to background events. Scaling the data before training appears to have a negligible impact.
+Interestingly, the SVM models trained on only `r n` samples perform almost as well as the logistic regression. It's likely that this is around the best performance possible with a linear boundary. Scaling the data before training appears to have a negligible impact.
 
 ## Training size
 How does increasing n affect time and performance?
@@ -178,7 +173,7 @@ for(i in 1:length(sizes)){
     
     times[g, i+1] <- system.time(y_pred <- time_check())["elapsed"]
     
-    results[g, i+1] <- calculate_ams_partition(y_test, y_pred, w_test, sum_w)
+    results[g, i+1] <- ams_metric(y_test, y_pred, w_test)
   }
 }
 
@@ -199,7 +194,7 @@ times %>%
     theme_minimal()
 ```
 
-We can see that performance (AMS score) does not increase much by doubling the sample size from 500 to 1000, but the computational complexity is approximately $\mathcal{O}(n^3)$
+We can see that performance (AMS score) does not change much when the sample size is doubled from 500 to 1000, but the training time increases with approximately $\mathcal{O}(n^3)$. The group with no jets seems to perform consistently better than the other two groups.
 
 ## Ensemble SVM
 Ensemble SVM is a technique where multiple SVM models are trained on subsets of the training data. To classify new samples, the majority vote from the models is taken. Dividing a dataset of $n$ samples over $m$ models reduces the computational complexity of an $\mathcal{O}(n^2)$ algorithm to $\mathcal{O}(n^2/m)$.
@@ -238,12 +233,12 @@ for(g in 1:G){
     y_pred <- model(X_test)
     y_predictions[,i] <- y_pred
     
-    results[g, i+1] <- calculate_ams_partition(y_test, y_pred, w_test, sum_w)
+    results[g, i+1] <- ams_metric(y_test, y_pred, w_test)
   }
   
   #now find the ams from majority vote
   y_pred <- sign(rowMeans(y_predictions, na.rm=T))
-  results[g, m+2] <- calculate_ams_partition(y_test, y_pred, w_test, sum_w)
+  results[g, m+2] <- ams_metric(y_test, y_pred, w_test)
 }
 
 
@@ -257,7 +252,7 @@ ggplot(plot_data[!plot_data$Ensemble,], aes(x=Group, y=AMS, colour=Group)) +
   theme_minimal()
 ```
 
-The ensemble SVM outperforms the individual models and and scales better with n. However the improvements in AMS are fairly modest.
+The ensemble SVM outperforms the individual models and and scales better with n, however the improvements in AMS are fairly modest. 
 
 ## Kernel SVM
 Running a small kernel SVM on each group. Unfortunately our implementation scales badly with n and so only small training and test sets can be used (predictions are also computational expensive).
@@ -300,7 +295,7 @@ for(g in 1:G){
     ckernel <- kernels[[k]]
     model <- kernel_svm(X_train_scaled, y_train, C=1, ckernel)
     y_pred <- model(X_test_scaled)
-    results[g, k+1] <- calculate_ams_partition(y_test, y_pred, w_test, sum_w)
+    results[g, k+1] <- ams_metric(y_test, y_pred, w_test)
   }
 }
 
@@ -311,7 +306,7 @@ results %>%
     theme_minimal()
 ```
 
-The RBF, trigonometric and polynomial kernels perform quite similarly in this trial. To improve performance we could do a grid search for the optimal hyperparameters with cross validation, however we are restricted by the time complexity of the kernel SVM function and so we instead focus on feature engineering the logsitic regression model.
+The RBF, trigonometric and polynomial kernels perform quite similarly in this trial. To improve performance we could do a grid search for the optimal hyperparameters with cross validation, however we are restricted by the time complexity of the kernel SVM function and so we instead focus on feature engineering the logistic regression model.
 
 ```{r, eval=F, include=F}
 #testing optimising RBF parameters, very restricted grid search
@@ -347,6 +342,6 @@ for(i in 1:nrow(results)){
   ckernel <- tuned_kernel(rbf_kernel, sigma)
   model <- kernel_svm(X_train_scaled, y_train, C, ckernel)
   y_pred <- model(X_test_scaled)
-  results[i, "AMS"] <- calculate_ams_partition(y_test, y_pred, w_test, sum_w)
+  results[i, "AMS"] <- ams_metric(y_test, y_pred, w_test)
 }
 ```

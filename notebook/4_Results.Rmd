@@ -30,7 +30,10 @@ if (!("do_save_outputs" %in% ls())) {
 Remove some columns that are not important for this analysis and average over any duplicated experiments:
 ```{r extract summarise}
 exp_data <- exp_data[, !colnames(exp_data) %in% c("c", "Train", "Validation", "model_type")]
-exp_data <- exp_data %>% group_by(n_rbf, lambda, poly) %>% summarise_all(funs(mean)) %>% as.data.frame()
+exp_data <- exp_data %>% 
+  group_by(n_rbf, lambda, poly) %>% 
+  summarise_all(mean) %>% 
+  as.data.frame()
 
 # consider scaling metrics by MAD(metric) to get a handle on variation
 scaled_auc <- exp_data[,"auc"]/exp_data[,"mad.auc."]

@@ -4,12 +4,12 @@
 \alias{plot_rocs}
 \title{Plot Multiple ROC curves}
 \usage{
-plot_rocs(rocs, title = NULL, info = "", ...)
+plot_rocs(rocs, title = NULL, info = "", scale = 0.8)
 }
 \arguments{
 \item{rocs}{a list of ROC_curve objects}
 
-\item{title}{str title to give plot}
+\item{title}{str title to give plot, if null a default title is generated}
 
 \item{info}{additional info to add to the default title}
 }

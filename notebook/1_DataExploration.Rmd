@@ -39,7 +39,7 @@ The package we have developed for assessment is called `lhc` and is available on
 ## Load packages
 
 ```{r, message=F}
-#devtools::install_github("ant-stephenson/lhc")
+devtools::install_github("ant-stephenson/lhc")
 library(lhc)
 library(dplyr)
 library(ggplot2)
@@ -157,7 +157,7 @@ colnames(missing) <- colnames(X)
 missing <- missing[,colSums(missing) != 0]
 
 #using dplyr to group the different types of row
-missing_combinations <- as_tibble(missing) %>% 
+missing_pattern <- as_tibble(missing) %>% 
   group_by_all() %>%
   count() %>%
   ungroup()
@@ -170,7 +170,7 @@ display_table <- function(data){
       kable_styling(latex_options="scale_down"))
   }
 }
-display_table(missing_combinations)
+display_table(missing_pattern)
 ```
 
 By looking for patterns of missing data, we identify 6 different types of sample. The first types and the last 3 types are identical other than the variable `DER_mass_MMC` being missing or not missing. By looking at the variables names, the main structure appears to be related to jets (a narrow cone of hadrons).
@@ -181,24 +181,25 @@ missing <- cbind(X[,"PRI_jet_num"], missing)
 colnames(missing)[1] <- "PRI_jet_num"
 
 #ignoring DER_mass_MMC and grouping again
-missing_combinations <- as_tibble(missing) %>% 
+missing_pattern <- as_tibble(missing) %>% 
   select(-DER_mass_MMC) %>%
   group_by_all() %>%
   count() %>%
   ungroup()
 
-display_table(missing_combinations)
+display_table(missing_pattern)
 ```
 So we have found the following pattern:
 
 - when jet_num = 0 the following variables are undefined
 ```{r}
-colnames(missing_combinations)[missing_combinations[1,] == 1]
+missing_pattern[,1] <- NULL
+colnames(missing_pattern)[missing_pattern[1,] == 1]
 ```
 
 - when jet_num = 1 the following variables are undefined
 ```{r}
-colnames(missing_combinations)[missing_combinations[2,] == 1]
+colnames(missing_pattern)[missing_pattern[2,] == 1]
 ```
 
 - and when jet_num = 2 or 3, there are no undefined variables.
@@ -297,8 +298,6 @@ pairs(X_transformed[idx,1:4], lower.panel = NULL, pch=20, col=X[idx, "PRI_jet_nu
 
 #colour by our groups
 pairs(X_transformed[idx,1:4], lower.panel = NULL, pch=20, col=as.numeric(info[idx, "Group"]))
-#its clear that the missing data is the main thing influencing the pca
-#and jet num = 2 or 3 are not similar
 ```
 PC2 appears to separate the samples based on their missing data pattern. Events with 2 or 3 jets look very similar and so having these grouped together as jet=2+ seems appropriate.
 

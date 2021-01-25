@@ -13,6 +13,17 @@ generate_colours <- function(ncolours) {
   return(unlist(colours))
 }
 
+#' Generate a set of blues
+#' @param n number of colours to generate
+#' @import RColorBrewer
+generate_blues<- function(n){
+  if(n >= 7){
+    colours <- colorRampPalette(brewer.pal(8, 'Blues')[2:8])(n)
+  } else{
+    colours <- brewer.pal(n+1, 'Blues')[2:(n+1)]
+  }
+  return(colours)
+}
 
 #' Calculate average AUC
 #' @param rocs a list of ROC_curve objects
@@ -26,34 +37,29 @@ average_auc <- function(rocs){
 
 #' Plot Multiple ROC curves
 #' @param rocs a list of ROC_curve objects
-#' @param title str title to give plot
+#' @param title str title to give plot, if null a default title is generated
 #' @param info additional info to add to the default title
-#' @import RColorBrewer
+#' @param scale controls plot cex arguments to size text
 #' @export
-plot_rocs <- function(rocs, title=NULL, info="", ...){
+plot_rocs <- function(rocs, title=NULL, info="", scale=0.8){
   n <- length(rocs)
   auc <- average_auc(rocs)
-
-  #gets some nice blues
-  if(n >= 7){
-    colours <- colorRampPalette(brewer.pal(8, 'Blues')[2:8])(n)
-  } else{
-    colours <- brewer.pal(n+1, 'Blues')[2:(n+1)]
-  }
+  colours <- generate_blues(n)
 
   if(is.null(title)){
     title <- sprintf("%s ROC curves with mean AUC of %.3f", info, auc)
   }
 
   plot(0:1, 0:1, type="l", lty=2, xlab="False Positive Rate",
-       ylab="True Positive Rate", main=title, ...)
+       ylab="True Positive Rate", main=title,
+       cex.main=scale, cex.lab=scale, cex.axis=scale)
 
   for(i in 1:n){
     lines(rocs[[i]]$FP, rocs[[i]]$TP, col=colours[i])
   }
 
   legend("bottomright", legend=c("Chance", paste0("Models 1-", n)),
-         col=c("black", colours[n]), lty=2:1, cex=0.8)
+         col=c("black", colours[n]), lty=2:1, cex=scale)
 }
 
 #' Calculate optimal threshold
@@ -73,19 +79,14 @@ ams_threshold <- function(amss){
 #' @param amss list of ams objects
 #' @param title str title to give plot, if null a default title is generated
 #' @param info additional info to add to the default title
-#' @import RColorBrewer
+#' @param scale controls plot cex arguments to size text
 #' @export
-plot_amss <- function(amss, title=NULL, info="", min.max=TRUE, ...){
+plot_amss <- function(amss, title=NULL, info="", min.max=TRUE, scale=0.8){
   lapply(amss, function(x) x$calc_ams())
   y_max <- max(sapply(amss, function(x) max(x$ams)))
   n <- length(amss)
 
-  #gets some nice blues
-  if(n >= 7){
-    colours <- colorRampPalette(brewer.pal(8, 'Blues')[2:8])(n)
-  } else{
-    colours <- brewer.pal(n+1, 'Blues')[2:(n+1)]
-  }
+  colours <- generate_blues(n)
   ams <- amss[[1]]
 
   if(min.max){
@@ -98,7 +99,8 @@ plot_amss <- function(amss, title=NULL, info="", min.max=TRUE, ...){
   }
 
   plot(ams$thresholds, ams$ams, type="l", col=colours[1], main=title,
-       xlab="Decision Threshold", ylab="AMS", ylim=c(0, y_max), ...)
+       xlab="Decision Threshold", ylab="AMS", ylim=c(0, y_max),
+       cex.main=scale, cex.lab=scale, cex.axis=scale)
 
   for(i in 2:n){
     ams <- amss[[i]]
@@ -108,9 +110,9 @@ plot_amss <- function(amss, title=NULL, info="", min.max=TRUE, ...){
   if(min.max){
     abline(v=min_max_thresh, lty=2)
     legend("bottomleft", legend=c("Optimal threshold", paste0("Models 1-", n)),
-           col=c("black", colours[n]), lty=2:1, cex=0.8, bg="white")
+           col=c("black", colours[n]), lty=2:1, bg="white", cex=scale)
   }else{
-    legend("bottomleft", legend=1:n, col=colours, lty=1, cex=0.8, bg="white")
+    legend("bottomleft", legend=1:n, col=colours, lty=1, bg="white", cex=scale)
   }
 }
 
@@ -170,3 +172,5 @@ plot_distributions <- function(X, variables=NULL, labels=NULL){
     theme(legend.position = "none") +
     facet_wrap(vars(Variable), scales="free")
 }
+
+

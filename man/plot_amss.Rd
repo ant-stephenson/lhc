@@ -4,7 +4,7 @@
 \alias{plot_amss}
 \title{define a function to plot multiple ams objects on the same axes}
 \usage{
-plot_amss(amss, title = NULL, info = "", min.max = TRUE, ...)
+plot_amss(amss, title = NULL, info = "", min.max = TRUE, scale = 0.8)
 }
 \arguments{
 \item{amss}{list of ams objects}
