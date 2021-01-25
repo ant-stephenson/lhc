@@ -12,8 +12,8 @@
 \rhead{}
 \lhead{}
 
-\author{Mansell, Georgina \and Stephenson, Ant}
-\date{\today}
+\author{Georgina Mansell and Anthony Stephenson}
+\date{}
 \title{Identifying fermionic decay signals of the Higgs boson with classification algorithms}
 
 \begin{document}
@@ -25,39 +25,30 @@
 \section{Introduction}
 After the theoretical discovery of the Higgs mechanism and the associated particle, the Higgs boson, experimental confirmation of the prediction became a much sought-after prize in High Energy Physics. Although the theory was more or less accepted by the theoretical community since its inception in the 1960s, experimental evidence was required for verification. 
 
-Once CERN's Large Hadron Collider (LHC) emerged on the scene, with the necessary power to probe higher energy regimes of collisions, vast amounts of data started to be collected. In order to verify the theoretical predictions of particle physics, this data needed to be anaylsed carefully to try and distinguish signal of as-yet unknown particle decays vs effectively ``proven'' existing decays. The accepted threshold for a discovery in particle physics is the ``gold-standard'' 5-sigma rule. As a result, any announcement of a new experimental discovery (such as the Higgs boson) was required to meet this threshold. 
+In 2010 CERN's Large Hadron Collider (LHC) achieved the necessary power to probe higher energy regimes of collisions and since then has collected vast amounts of data. In order to verify the theoretical predictions of particle physics, this data needed to be anaylsed carefully to try and distinguish signals from an unknown particle decays from other known decays. The accepted threshold for a discovery in particle physics is the ``gold-standard'' 5-sigma rule. As a result, experimental discovery of the Higgs was required to meet this threshold. 
 
-For the Higgs boson in particular, various decay mechanisms were proposed that could be used to demonstrate its existence by comparing the rate of the by-products of those decays vs background mechanisms (that do not involve the Higgs). In 2013, when the Higgs was experimentally discovered by CERN, the evidence was provided by \emph{bosonic} decays from the Higgs to the following pairs, $\gamma\gamma$, $WW$ and $ZZ$. 
+Various decay mechanisms of the Higgs boson were proposed that could be used to demonstrate its existence. In 2013, when the Higgs was experimentally discovered by CERN, the evidence was provided by \emph{bosonic} decays from the Higgs to the following pairs, $\gamma\gamma$, $WW$ and $ZZ$. The goal here is to instead examine the coupling of the Higgs to fermions, to verify that their mass can likewise be explained by the Higgs mechanism. Specifically, the aim is to analyse the decay of the Higgs to a pair of tau-flavour leptons $H\rightarrow\tau\tau$.
 
-The goal here is to instead examine the coupling of the Higgs to fermions, to verify that their mass can likewise be explained by the Higgs mechanism. Specifically, the aim is to analyse the decay $H\rightarrow\tau\tau$; i.e. the decay of the Higgs to a pair of tau-flavour leptons. (The other candidates, electrons and muons fall outside the energy range of the LHC due to their lighter mass).
-
-In this document we look at the problem of improving the statistical significance of the experimental results collected by implementing classification models to identify signal events. We organise the report by providing a brief overview of the dataset and some of its key properties in \ref{data}. After this we introduce our proposed methods for studying the problem and generating classification predictions in \ref{method}. We go onto analyse the results we obtained from running experiments on the data with our models in order to try and pick the best performing model from our subset of trials, being careful to fairly assess this from two key metrics (\ref{results}). Finally we summarise our key findings and overall score on a hold-out test set of data in \ref{conclusion}.
+In this document we implement classification models to identify signal events $H\rightarrow\tau\tau$ from other background events. An overview of the data set is provided in \ref{data}, the classification techniques and performance metrics are introduced in \ref{method}, candidate models are compared in \ref{results}, and the key findings and validation results are summarised in \ref{conclusion}.
 
 \section{Data}
 \label{data}
 \subsection{Structure}
-We have access to a dataset comprising roughly of primitive covariates, derived covariates, target labels and auxiliary data (weights, subset labels). 
+The dataset is provided by CERN and contains roughly 800,000 proton-proton collision events from the official ATLAS detector simulator. It includes 16 primitive variables measured by the detector, 13 variables derived from the primitive variables, the event classifications, and 4 columns of auxiliary data such as sample weights. 
 
 \subsection{Class Imbalance}
-Since the events we are looking for in the data are rare, if we were to na\"{\i}vely include rows of signal and background events at the actually observed signal:noise ratio (of approximately 1:1000) we would have a highly imbalanced dataset. As a result, we need to adopt a strategy to address this by either modifying our dataset such that standard classification algorithms can still be of use, or modifying the algorithms to take this into account. Fortunately, the dataset includes a column of weights which account for the imbalance. In particular, the ratio of signal:background rows in the training data is approximately 1:1.9 with associated weights of $O(10^{-3})$ and $O(1)$ for the signal and background rows respectively.
+Signal events occur in approximately 1/1000 collisions. If events in the data set were na\"{\i}vely simulated at their true rate, this would create a highly imbalanced dataset. Classification algorithms can often be modified to account for class imbalance, however as the CERN dataset was simulated the number of samples in each class could be controlled. In the generated dataset approximately 1/3 samples are classified as signal events and the samples are given importance weightings corresponding to their true rate of occurrence. The associated weights of signal and background samples are roughly $O(10^{-3})$ and $O(1)$.
 
 \subsection{Missing Data}
-Early examinations of the dataset revealed the presence of a significant quantity of missing data. Elements of the data matrix recorded as missing were labelled by a value of -999. Before embarking on any model building or even feature engineering we analysed the missing values to try and ascertain whether there was any pattern to their locations. From the definitions of covariates in the dataset it was possible to infer potential causes of missing data. In particular, the estimated mass of the Higgs ($DER\_mass\_MMC$) ``(may be undefined if the topology of the event is too far from the expected topology)", indicates that this feature may be expected to be labelled as missing. Similarly, a set of the features mention a dependence on the number of jets measured in the interaction:
+Early exploration of the dataset revealed the presence of a significant quantity of missing data. Elements of the data matrix recorded as missing were labelled by a value of -999. Before embarking on any model building or even feature engineering we analysed the missing values to try and ascertain whether there was any pattern to their locations. From the definitions of covariates in the dataset it was possible to infer potential causes of missing data. In particular, the estimated mass of the Higgs ($DER\_mass\_MMC$) ``may be undefined if the topology of the event is too far from the expected topology". Additionally:
+\begin{itemize}
+	\item If $PRI\_jet\_num = 1$ the following values are undefined:
+	$DER\_deltaeta\_jet\_jet$, $DER\_mass\_jet\_jet$, $DER\_prodeta\_jet\_jet$, $DER\_lep\_eta\_centrality$, $PRI\_jet\_subleading\_pt$, $PRI\_jet\_subleading\_eta$, $PRI\_jet\_subleading\_phi$
+    \item If $PRI\_jet\_num = 0$ the additional values are undefined: 
+    $PRI\_jet\_leading\_pt$, $PRI\_jet\_leading\_eta$, $PRI\_jet\_leading\_phi$
+\end{itemize}
 
-\begin{description}
-    \item[$DER\_deltaeta\_jet\_jet$] undefined if $PRI\_jet\_num \leq 1$
-    \item[$DER\_mass\_jet\_jet$] undefined if $PRI\_jet\_num \leq 1$
-    \item[$DER\_prodeta\_jet\_jet$] undefined if $PRI\_jet\_num \leq 1$
-    \item[$PRI\_jet\_subleading\_pt$] undefined if $PRI\_jet\_num \leq 1$
-    \item[$PRI\_jet\_subleading\_phi$] undefined if $PRI\_jet\_num \leq 1$
-    \item[$PRI\_jet\_subleading\_eta$] undefined if $PRI\_jet\_num \leq 1$
-    \item[$DER\_lep\_eta\_entrality$] undefined if $PRI\_jet\_num \leq 1$
-    \item[$PRI\_jet\_leading\_pt$] undefined if $PRI\_jet\_num = 0$
-    \item[$PRI\_jet\_leading\_eta$] undefined if $PRI\_jet\_num = 0$
-    \item[$PRI\_jet\_leading\_phi$] undefined if $PRI\_jet\_num = 0$   
-\end{description}
-
-So we can see that the missing data is explained by the combination of an unexpected topology and the number of jets observed. This implies that the physical data generating process is different in each of these regimes and that we ought to treat them differently in accordance. As such we chose to attempt to build a separate model for each regime. 
+Missing values are therefore not random, and are explained by the combination of an unexpected topology and the number of jets observed. This implies that the physical process is sufficiently different in these regimes that they should be modelled differently in accordance. 
 
 \section{Method}
 \label{method}
@@ -93,6 +84,7 @@ We chose to use a logistic regression as a baseline model to try and solve our c
 We implemented our logistic regression model by defining an R class with a standard interface (to enable polymorphism) and an associated fitting function. This function made use of Newton's method (\ref{algo:newton}) with a backtracking linesearch (\ref{algo:line}) in order to calculate maximum likelihood estimates for our model coefficients, $\betav$. \ref{appendix:newton_lr} show's the full calculations of the gradient and Hessian of the logistic likelihood function required to implement Newton's method.
 
 \subsection{SVM}
+SVM algorithms offer the potential to use the ``kernel-trick'', where the data is projected into a higher dimensional space before finding optimal boundary separating 
 
 \subsection{Feature Engineering}
 In order to improve the performance of our model, we attempted to carry out some feature engineering to extract as much information as possible from the dataset.
