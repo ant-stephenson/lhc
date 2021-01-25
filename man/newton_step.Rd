@@ -2,7 +2,7 @@
 % Please edit documentation in R/lr_funcs.r
 \name{newton_step}
 \alias{newton_step}
-\title{Compute newton step}
+\title{Newton step}
 \usage{
 newton_step(grad, H)
 }

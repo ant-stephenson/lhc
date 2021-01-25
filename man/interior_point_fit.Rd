@@ -2,7 +2,7 @@
 % Please edit documentation in R/lr_funcs.r
 \name{interior_point_fit}
 \alias{interior_point_fit}
-\title{x contains lambda (dual var) as well}
+\title{Interior point fit}
 \usage{
 interior_point_fit(
   f,

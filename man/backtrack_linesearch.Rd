@@ -2,16 +2,16 @@
 % Please edit documentation in R/lr_funcs.r
 \name{backtrack_linesearch}
 \alias{backtrack_linesearch}
-\title{backtracking linesearch to find "optimal" step size}
+\title{Backtrack linesearch}
 \usage{
 backtrack_linesearch(f, gradf, x, deltax, alpha, beta)
 }
 \arguments{
-\item{f}{function we're minimising}
+\item{f}{function to minimising}
 
 \item{gradf}{gradient of f}
 
-\item{x}{parameter we're optimising over}
+\item{x}{parameter to optimising over}
 
 \item{deltax}{newton step}
 
@@ -19,6 +19,9 @@ backtrack_linesearch(f, gradf, x, deltax, alpha, beta)
 
 \item{beta}{linesearch update parameter}
 }
+\value{
+stop to take
+}
 \description{
-backtracking linesearch to find "optimal" step size
+Backtracking linesearch to find "optimal" step size
 }

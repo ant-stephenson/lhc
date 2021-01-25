@@ -2,7 +2,7 @@
 % Please edit documentation in R/utility_funcs.r
 \name{poly_transform}
 \alias{poly_transform}
-\title{Run polynomial transform on columns of X (of order b), removing output columns that are highly correlated}
+\title{Polynomial transform}
 \usage{
 poly_transform(X, b = 2)
 }
@@ -12,8 +12,8 @@ poly_transform(X, b = 2)
 \item{b}{order of polynomial}
 }
 \value{
-X augmented matrix of covariates
+augmented matrix of covariates
 }
 \description{
-Run polynomial transform on columns of X (of order b), removing output columns that are highly correlated
+Run a b-degree polynomial transform on the columns of X (of order b)
 }

@@ -38,7 +38,7 @@ plot_rocs <- function(rocs, title=NULL, info="", ...){
   if(n >= 7){
     colours <- colorRampPalette(brewer.pal(8, 'Blues')[2:8])(n)
   } else{
-    colours <- brewer.pal(n+1, 'Blues')[2:n+1]
+    colours <- brewer.pal(n+1, 'Blues')[2:(n+1)]
   }
 
   if(is.null(title)){
@@ -84,7 +84,7 @@ plot_amss <- function(amss, title=NULL, info="", min.max=TRUE, ...){
   if(n >= 7){
     colours <- colorRampPalette(brewer.pal(8, 'Blues')[2:8])(n)
   } else{
-    colours <- brewer.pal(n+1, 'Blues')[2:n+1]
+    colours <- brewer.pal(n+1, 'Blues')[2:(n+1)]
   }
   ams <- amss[[1]]
 
@@ -110,7 +110,7 @@ plot_amss <- function(amss, title=NULL, info="", min.max=TRUE, ...){
     legend("bottomleft", legend=c("Optimal threshold", paste0("Models 1-", n)),
            col=c("black", colours[n]), lty=2:1, cex=0.8, bg="white")
   }else{
-    legend("bottomleft", legend=1:n, col=colours[n], lty=1, cex=0.8, bg="white")
+    legend("bottomleft", legend=1:n, col=colours, lty=1, cex=0.8, bg="white")
   }
 }
 

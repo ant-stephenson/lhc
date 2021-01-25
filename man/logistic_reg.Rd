@@ -2,7 +2,7 @@
 % Please edit documentation in R/lr_funcs.r
 \name{logistic_reg}
 \alias{logistic_reg}
-\title{Fit a logistic regression model by IRWLS - same thing glm does}
+\title{Logistic regression}
 \usage{
 logistic_reg(X, y, lambda = 0)
 }
@@ -11,7 +11,7 @@ logistic_reg(X, y, lambda = 0)
 
 \item{y}{response vector}
 
-\item{lambda}{[Optional] L2 regularisation parameter}
+\item{lambda}{[Optional] L2 regularisation parameter, defaults to 0.}
 
 \item{r}{[Optional] weight vector}
 }
@@ -19,5 +19,6 @@ logistic_reg(X, y, lambda = 0)
 b vector of coefficients
 }
 \description{
-Fit a logistic regression model by IRWLS - same thing glm does
+Fit a logistic regression model by IRWLS.
+This is the same method that glm uses when family="binomial".
 }

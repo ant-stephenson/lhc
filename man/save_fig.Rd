@@ -2,7 +2,7 @@
 % Please edit documentation in R/plot_funcs.r
 \name{save_fig}
 \alias{save_fig}
-\title{function to wrap figure saving}
+\title{Wrap figure saving}
 \usage{
 save_fig(plot_func, filepath, filetype = pdf)
 }
@@ -14,5 +14,5 @@ save_fig(plot_func, filepath, filetype = pdf)
 \item{filetype}{type to save as (function name)}
 }
 \description{
-function to wrap figure saving
+Wrap figure saving
 }

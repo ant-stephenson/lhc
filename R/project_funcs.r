@@ -28,7 +28,7 @@ import_data <- function(filepath="atlas-higgs-challenge-2014-v2.csv") {
   X <- lhc_data[, X_header]
 
   # Replace -999s with NAs
-  X[X==-999] <- NA
+  #X[X==-999] <- NA
 
   output <- list(X=X, y=y, w=w, kaggle_w=kaggle_w, kaggle_s=kaggle_s, e_id=e_id, nj=nj)
   return(output)
@@ -127,4 +127,26 @@ invert_angle_sign <- function(X) {
   X$"PRI_jet_leading_eta" <- signs * X$"PRI_jet_leading_eta"
   X$"PRI_jet_subleading_eta" <- signs * X$"PRI_jet_subleading_eta"
   return(X)
+}
+
+
+#' Calculate AMS metric
+#' @export
+ams_metric <- function(y, y_pred, weights, Ns=691.9886, Nb=410999.8){
+  if(length(y)!=length(y_pred) | length(y) != length(weights)) stop('y, y_pred, and weights must all be the same length')
+
+  #normalise sample weights
+  weights[y==1] <- weights[y==1] * (Ns / sum(weights[y==1]))
+  weights[y!=1] <- weights[y!=1] * (Nb / sum(weights[y!=1]))
+
+  #calculate s and b
+  #s is the sum of the weights of the correctly predicted positives (true positives)
+  #b is the sum of the weights of the incorrectly predicted positives (false positives)
+  s <- sum(weights[y_pred==1 & y==1])
+  b <- sum(weights[y_pred==1 & y!=1])
+
+  #calculate ams using kaggle formula
+  breg <- 10
+  AMS <- sqrt(2*((s+b+breg)*log(1+s/(b+breg))-s))
+  return(AMS)
 }

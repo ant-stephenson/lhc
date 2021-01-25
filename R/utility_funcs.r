@@ -257,62 +257,62 @@ decide <- function(p, thresh = 0.5) {
     return(label)
 }
 
-#' Calculate AMS metric
+#' #' Calculate AMS metric
+#' #'
+#' #' \eqn{s = sum_{i in B \cup G}w_i}
+#' #' \eqn{b = sum_{i in B \cup G}w_i};
+#' #' i.e. s is the sum of the weights of successful signal classifications (TP)
+#' #' and b is the sum of the weights of incorrect signal classifications (FP)
+#' #' @param s count of true positives
+#' #' @param b count of false positives
+#' ams_metric <- function(s, b) {
+#'     br <- 10
+#'     sqrt(2 * ((s + b + br) * log(1 + s/(b + br)) - s))
+#' }
 #'
-#' \eqn{s = sum_{i in B \cup G}w_i}
-#' \eqn{b = sum_{i in B \cup G}w_i};
-#' i.e. s is the sum of the weights of successful signal classifications (TP)
-#' and b is the sum of the weights of incorrect signal classifications (FP)
-#' @param s count of true positives
-#' @param b count of false positives
-ams_metric <- function(s, b) {
-    br <- 10
-    sqrt(2 * ((s + b + br) * log(1 + s/(b + br)) - s))
-}
-
-#' Count the number of true positives
-#' need to make sure dims of y, y_hat and w are the same
-#' @param y response vector
-#' @param y_hat predicted response vector
-#' @param w weights
-count_s <- function(y, y_hat, w) {
-    stopifnot(length(y) == length(y_hat))
-    stopifnot(length(y) == length(w))
-    s <- sum(w[y == 1 & y_hat == 1])
-    return(s)
-}
-
-#' Count the number of false positives
-#' need to make sure dims of y, y_hat and w are the same
-#' @param y response vector
-#' @param y_hat predicted response vector
-#' @param w weights
-count_b <- function(y, y_hat, w) {
-    stopifnot(length(y) == length(y_hat))
-    stopifnot(length(y) == length(w))
-    b <- sum(w[y != 1 & y_hat == 1])
-    return(b)
-}
-
-#' Calculate AMS metric
+#' #' Count the number of true positives
+#' #' need to make sure dims of y, y_hat and w are the same
+#' #' @param y response vector
+#' #' @param y_hat predicted response vector
+#' #' @param w weights
+#' count_s <- function(y, y_hat, w) {
+#'     stopifnot(length(y) == length(y_hat))
+#'     stopifnot(length(y) == length(w))
+#'     s <- sum(w[y == 1 & y_hat == 1])
+#'     return(s)
+#' }
 #'
-#' @param y response vector
-#' @param y_hat predicted response vector
-#' @param w weights of samples in y
-#' @param sum_w total sum of weights for re-normalisation.
-#' If sum_w is not provided the calculation assumes weights have already been rescaled.
+#' #' Count the number of false positives
+#' #' need to make sure dims of y, y_hat and w are the same
+#' #' @param y response vector
+#' #' @param y_hat predicted response vector
+#' #' @param w weights
+#' count_b <- function(y, y_hat, w) {
+#'     stopifnot(length(y) == length(y_hat))
+#'     stopifnot(length(y) == length(w))
+#'     b <- sum(w[y != 1 & y_hat == 1])
+#'     return(b)
+#' }
 #'
-#' @return ams
-#' @export
-calculate_ams_partition <- function(y, y_hat, w, sum_w=NULL) {
-  if (!is.null(sum_w)) {
-    w <- w * (sum_w/sum(w))
-  }
-  y_hat <- as.numeric(y_hat)
-  s <- count_s(y, y_hat, w)
-  b <- count_b(y, y_hat, w)
-  ams <- ams_metric(s, b)
-  return(ams)
-}
+#' #' Calculate AMS metric
+#' #'
+#' #' @param y response vector
+#' #' @param y_hat predicted response vector
+#' #' @param w weights of samples in y
+#' #' @param sum_w total sum of weights for re-normalisation.
+#' #' If sum_w is not provided the calculation assumes weights have already been rescaled.
+#' #'
+#' #' @return ams
+#' #' @export
+#' calculate_ams_partition <- function(y, y_hat, w, sum_w=NULL) {
+#'   if (!is.null(sum_w)) {
+#'     w <- w * (sum_w/sum(w))
+#'   }
+#'   y_hat <- as.numeric(y_hat)
+#'   s <- count_s(y, y_hat, w)
+#'   b <- count_b(y, y_hat, w)
+#'   ams <- ams_metric(s, b)
+#'   return(ams)
+#' }
 
 

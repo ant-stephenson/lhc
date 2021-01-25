@@ -6,18 +6,17 @@ urlcolor: purple
 ---
 
 ```{r, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_chunk$set(fig.align = "center")  
+knitr::opts_chunk$set(echo=T, fig.align = "center", cache=T)
 ```
 
 # Introduction
 In 2014, CERN provided a simulated dataset from their ATLAS experiment for use in a programming competition on [Kaggle](https://www.kaggle.com/c/higgs-boson/overview). After the Kaggle Challenge closed, the full dataset was made available [here](http://opendata.cern.ch/record/328), with the accompanying documentation [here](http://opendata.cern.ch/record/329/files/atlas-higgs-challenge-2014.pdf). The goal of the challenge is to develop a binary classification model to distinguish signal and background events.
 
-The dataset contains 818,238 samples with 30 features, a class label, and 4 columns of additional information such as sample weight and event ID. Of this, 250,000 samples were provided as training data for the Kaggle Challenge, 100,000 for the public leaderboard, 450,000 for the private leaderboard, and the remaining 18,238 were unused. 
+The dataset contains 818,238 samples with 30 features, a class label, and 4 columns of additional information such as sample weight and event ID. Of this, 250,000 samples were provided as training data for the Kaggle Challenge (set "t"), 100,000 for the public leaderboard (set "b"), 450,000 for the private leaderboard (set "v"), and the remaining 18,238 were unused (set "u"). 
 
 The samples are simulated events from the Large Hadron Collider (LHC). In an event, bunches of protons are accelerated around the LHC in opposite directions and collide. The collision produces hundreds of particles, most of which are unstable and decay into lighter particles such as electrons or photons. Sensors in the LHC measure properties of the surviving particles, and from this the properties of the parent particles can be inferred. Signal events are defined as events where a Higgs boson decays into two tau particles.
 
-In the following markdown notebooks we use methods from SM1 and SC1 to attempt the Kaggle Challenge in R. We chose to follow a similar structure, using the Kaggle training set to train our model, and the private leaderboard set as our hold-out validation set. 
+In the following markdown notebooks we use methods from SM1 and SC1 to attempt the Kaggle Challenge in R. We chose to follow a similar structure, using the Kaggle training set to train our model, and the private leaderboard set as our hold-out validation set. The public leaderboard and unused datasets are excluded for simplicity.
 
 The notebooks are structured as follows:  
 
@@ -26,11 +25,9 @@ The notebooks are structured as follows:
 3. Logistic Regression - we use our implementation of logistic regression within an OOP framework to explore models with varying parameters and feature engineering.
 4. Results - we compare our models and use the best performing model on our validation set.
 
-# Data Exploration
-## Load packages
 The package we have developed for assessment is called `lhc` and is available on github [here](https://github.com/ant-stephenson/lhc). The functions are divided thematically into the following files:
 
-- utility_funcs.r
+- utility_funcs.r 
 - objects.r
 - plot_funcs.r
 - lr_funcs.r
@@ -38,8 +35,11 @@ The package we have developed for assessment is called `lhc` and is available on
 - svm_funcs.r
 - project_funcs.r
 
+# Data Exploration
+## Load packages
+
 ```{r, message=F}
-devtools::install_github("ant-stephenson/lhc")
+#devtools::install_github("ant-stephenson/lhc")
 library(lhc)
 library(dplyr)
 library(ggplot2)
@@ -54,12 +54,9 @@ filepath <- list.files(path="~", pattern="atlas-higgs-challenge-2014-v2.csv",
                        full.names=T, recursive=T)
 
 #fast load the raw data
-raw_data <- data.table::fread("../../atlas-higgs-challenge-2014-v2.csv")
+raw_data <- data.table::fread(filepath)
 
-#take a look at the its structure
-str(raw_data)
-
-#Split data into X (just variables) and addtional info
+#Split data into X (just variables) and additional info
 all_info <- as.data.frame(raw_data[, c("KaggleSet", "KaggleWeight", "Weight", "Label")]) 
 all_X <- as.matrix(raw_data[, -c("EventId", "KaggleSet", "KaggleWeight", "Weight", "Label")])
 
@@ -81,7 +78,7 @@ plot_distributions(X, variables = colnames(X)[16:30], labels = info$Label)
 By looking at the distributions of the data we can see that the two classes appear fairly similar and so we might expect a reasonably complex model will be needed to separate them. All of the variables are continuous except for `PRI_jet_num` which is discrete (0, 1, 2, 3). For some of the variables there are peaks at -999. This is because -999 has been used to indicate undefined values which cannot be computed for a physical reason.
 
 ## Performance Metrics
-The simulated dataset has been generated in such a way that the number of events in each class are roughly equal. However in reality, there are far more background events than signal, and so the samples have also been given importance weightings. The weightings within each class sum to the actual expected number of signal and background events, $\sum_{i; y_i=s} w_i = N_s$, and $\sum_{i; y_i=b} w_i = N_b$. Whenever we take a training and test set from our total training data, we need to ensure the weightings are rescaled.
+The simulated dataset has been generated so that the number of signal and background events are roughly equal. However in reality, there are far more background events than signal, and so the samples have also been given importance weightings. The weightings within each class sum to the actual expected number of signal and background events, $\sum_{i; y_i=s} w_i = N_s$, and $\sum_{i; y_i=b} w_i = N_b$. Whenever we take a training and test set from our total training data, we need to ensure the weightings are rescaled.
 
 To assess the accuracy of a binary classification model, a standard approach is to plot a ROC (Receiver Operating Characteristic) curve and calculate its AUC (Area Under the Curve). To create the plot, you take the output of a probabilistic model and plot the true positive rate against the false positive rate as the decision threshold is varied. Using this approach here will tell us about the model's accuracy in terms of number of samples in the dataset, but it will not take into account the sample weights. Note that this approach cannot be used for non-probabilistic models such as SVM, as there is not a continuous output that different thresholds can be applied to. 
 
@@ -91,8 +88,20 @@ where s is the sum of the sample weights of true positives $s = \sum_{i; y_i=s, 
 
 In our package `lhc`, we have defined two reference class objects to store data related to the ROC and AMS performance measures `ROC_curve` and `AMS_data`. We have also defined plotting functions to plot multiple ROC curves or AMS metrics on the same axes in order to visualise the variance of models during cross validation.
 
+```{r}
+#when we take a subset of samples, weights need to be renormalised so the sum of signal weights = Ns and sum of background weights = Nb, where
+Ns <- sum(info$KaggleWeight[info$Label=="s"])
+  #or sum(all_info$Weight[all_info$Label=="s"]) as the two are equal
+Nb <- sum(info$KaggleWeight[info$Label=="b"]) 
+  #or sum(all_info$Weight[all_info$Label=="b"])
+
+#these values are set as the default scaling factors in our function ams_metric
+#which is called within the AMS_data class
+print(c(Ns, Nb))
+```
+
 ## Baseline Model
-In our package, we have implemented logistic regression with iteratively weighted least squares (IWLS) in the function `logistic_reg`, and we have created an OOP framework to interact with the model `logistic_model`.
+In our package, we have implemented logistic regression with iteratively weighted least squares (IWLS) in the function `logistic_reg`, and we have created an associated object class `logistic_model`.
 
 As a first pass, we perform a simple logistic regression on the training set with k-fold cross validation, and view the ROC curves and AMS data for each fold.
 
@@ -113,9 +122,7 @@ for(i in 1:k){
   
   X_test <- X[kI == i,]
   y_test <- info[kI == i, "Y"]
-  
   w_test <- info[kI == i, "Weight"]
-  w_test <- w_test * (sum(info$Weight)/sum(w_test))
   
   #fit a logistic regression model to the CV training data
   models[[i]] <- logistic_model$new(X=X_train, y=y_train)
@@ -254,7 +261,7 @@ info %>% group_by(Group, CV_group) %>%
   count()
 ```
 
-The three groups have varying ratios of signal and background events (approx 1:3, 1:2, and 1:1), though they are similar in size (approx 80,000) and in ratio of weights (approx 1:500).
+The three groups have varying ratios of signal and background events (approx 1:3, 1:2, and 1:1), though they have similar ratio of sample weights (approx 1:500) and have similar number of samples (70,000 to 100,000).
 
 ## PCA
 A standard approach for visualising a high dimensional dataset is to perform Principle Component Analysis (PCA) and to plot the first few principle components. We can select the number of PCs to visualise by looking at the proportion of variance that they explain. 
@@ -334,9 +341,7 @@ for(g in 1:G){
     
     X_test <- X_group[kI == i,]
     y_test <- info_group[kI == i, "Y"] 
-    
     w_test <- info_group[kI == i, "Weight"]
-    w_test <- w_test * (sum(info$Weight)/sum(w_test))
     
     #fit a logistic regression model to the CV training data
     models[[i]] <- logistic_model$new(X=X_train, y=y_train)
@@ -382,10 +387,8 @@ for(g in 1:G){
     
     X_test <- X_group[kI == i,]
     y_test <- info_group[kI == i, "Y"] 
-    
     w_test <- info_group[kI == i, "Weight"]
-    w_test <- w_test * (sum(info$Weight)/sum(w_test))
-    
+
     #scale the training data, and scale the test data with the same transformation
     X_train_scaled <- scale_dat(X_train, X_train)
     X_test_scaled <- scale_dat(X_test, X_train)

@@ -6,12 +6,11 @@ urlcolor: purple
 ---
   
 ```{r, include=FALSE}
-knitr::opts_chunk$set(echo = TRUE)
-knitr::opts_chunk$set(fig.align = "center")  
+knitr::opts_chunk$set(echo=T, fig.align = "center", cache=T)
 ```
 
 ```{r, eval=T, include=F, message=F}
-devtools::install_github("ant-stephenson/lhc")
+#devtools::install_github("ant-stephenson/lhc")
 library(lhc)
 library(dplyr)
 library(ggplot2)
@@ -52,27 +51,30 @@ features_to_rm <- vector("list", 3)
 for(g in 1:G){
   features_to_rm[[g]] <- colnames(X)[apply(X[info$Group==groups[g],], 2, sd) == 0]
 }
+names(features_to_rm) <- groups
 ```
 
 # SVM 
-In the `lhc` package we have implemented two support vector machine (SVM) algorithms: `svm` and `kernel_svm`. In this section of the notebook we attempt to apply these methods to the Higgs Challenge. We would expect soft-margin SVM to have a similar performance to logistic regression, and that kernel SVM could improve on this as it can transform the dataset and create a non-linear decision boundary. Unfortunately, SVM algorithms do not scale well with the number of samples and so we are unlikely to be able to train our models on a significant portion of the training data.
+In the `lhc` package we have implemented two support vector machine (SVM) algorithms: `svm` and `kernel_svm`. In this section of the notebook we attempt to apply these methods to the Higgs boson classification problem. 
 
-Our SVM functions take as inputs: a design matrix $X$, binary class labels $y \in \{-1, 1\}$, a parameter $C$ to controls the relative weighting of maximising the margin vs minimising the slack variables, and for `kernel_svm` a kernel function `ckernel(x_i, x_j)`. 
+It is expected that soft-margin SVM will have a similar performance to logistic regression. Kernel SVM could improve performance by transforming the data and creating a non linear decision boundary. Unfortunately, SVM algorithms do not scale well with n and so we are unlikely to be able to train our models on a significant portion of the training data.
 
-The data is restructured as a Lagrangian
+Our SVM functions take as inputs: an $n \times d$ design matrix $\textbf{X}$, binary class labels $\textbf{y} \in \{-1, 1\}^n$, a parameter $C$ to controls the relative weighting of maximising the margin vs minimising the slack variables. For `kernel_svm` a kernel function $k$ is also needed. 
+
+The functions use the function `solve.QP` from the `quadprog` package to solve the Lagrangian optimisation problem: 
 $$L(\boldsymbol{\lambda}) =- \dfrac{\boldsymbol{\lambda} ((\textbf{yy}^T) \circ (\textbf{XX}^T)) \boldsymbol{\lambda}}{2} + \langle \textbf{1}, \boldsymbol{\lambda} \rangle$$
 subject to 
 $$0 \leq \lambda_i \leq C, \qquad \sum_i \lambda_i y_i = 0$$
-For `kernel_svm`, $\textbf{XX}^T$ is replaced with $K$, where $K_{ij} = k(\textbf{x}_i, \textbf{x}_j)$.
+For `kernel_svm`, $\textbf{XX}^T$ is replaced with $\textbf{K}$, where $K_{ij} = k(\textbf{x}_i, \textbf{x}_j)$.
 
-To solve the quadratic optimisation problem, `solve.QP` from the `quadprog` package is used. The SVM functions then return a function/trained model which predicts the classes of new samples. For example, the prediction function for the soft-margin SVM takes the form $y_i = \textbf{w}^T \textbf{x}_i + w_0$.
+Finally, the functions return a function/trained model which predicts the classes of new samples. For example, the prediction function for the soft-margin SVM takes the form $y_i = \textbf{w}^T \textbf{x}_i + w_0$.
 
-SVM algorithms are not probabilistic; that is, they return the predicted class of samples $\hat{y}_i$ not the probability $P(y_i=s | \textbf{x}_i)$. This means we cannot us our `ROC_curve` and `AMS_data` object classes which vary a decision threshold, and we so calculate a single AMS value for the test set.
+SVM algorithms return the predicted class of samples $\hat{y}_i$ not the probability $P(y_i=s | \textbf{x}_i)$. This means we cannot us our `ROC_curve` and `AMS_data` object classes which vary a decision threshold, and we so calculate a single AMS value for the test set.
 
 ## Soft-margin SVM
 First we run a first pass of the soft-margin SVM on each of our groups using a small training set. We test how standardising the data before fitting affects performance, and how performance compares to chance (random assignment of classes).
 
-```{r, fig.width=4.5, fig.height=3.5}
+```{r, fig.width=4.5, fig.height=3}
 #for SVM recode Y as -1 and 1
 info$Y[info$Y == 0] <- -1
 
@@ -142,7 +144,7 @@ The three groups have different chance performance which is likely due to the di
 ## Training size
 How does increasing n affect time and performance?
 
-```{r, fig.width=4.5, fig.height=3.5}
+```{r, fig.width=4.5, fig.height=3}
 #create a results table to store AMS
 sizes <- c(100, 200, 500, 1000)
 results <- as.data.frame(matrix(NA, nrow=G, ncol=length(sizes)+1))
@@ -202,7 +204,7 @@ We can see that performance (AMS score) does not increase much by doubling the s
 ## Ensemble SVM
 Ensemble SVM is a technique where multiple SVM models are trained on subsets of the training data. To classify new samples, the majority vote from the models is taken. Dividing a dataset of $n$ samples over $m$ models reduces the computational complexity of an $\mathcal{O}(n^2)$ algorithm to $\mathcal{O}(n^2/m)$.
 
-```{r, fig.width=4.5, fig.height=3.5}
+```{r, fig.width=4.5, fig.height=3}
 m <- 10
 n <- 500
 
@@ -255,10 +257,12 @@ ggplot(plot_data[!plot_data$Ensemble,], aes(x=Group, y=AMS, colour=Group)) +
   theme_minimal()
 ```
 
+The ensemble SVM outperforms the individual models and and scales better with n. However the improvements in AMS are fairly modest.
+
 ## Kernel SVM
 Running a small kernel SVM on each group. Unfortunately our implementation scales badly with n and so only small training and test sets can be used (predictions are also computational expensive).
 
-```{r, fig.width=5, fig.height=3.5}
+```{r, fig.width=5, fig.height=3}
 train_n <- 200
 test_n <- 2000
 
@@ -289,7 +293,7 @@ for(g in 1:G){
     y_test <- info_group[kI==2, "Y"] 
     w_test <- info_group[kI==2, "Weight"]
     
-    #scale data otherwise poly kernel has too large values
+    #scale data so values in poly kernel aren't too large
     X_test_scaled <- scale_dat(X_test, X_train, add.intercept = F)
     X_train_scaled <- scale_dat(X_train, X_train, add.intercept = F)
     
@@ -307,4 +311,42 @@ results %>%
     theme_minimal()
 ```
 
-The linear kernel outperforms the kernel SVM for all groups. This is likely because we have not tuned the hyperparameters of the kernels and the training set is too small for the complexity of the model.
+The RBF, trigonometric and polynomial kernels perform quite similarly in this trial. To improve performance we could do a grid search for the optimal hyperparameters with cross validation, however we are restricted by the time complexity of the kernel SVM function and so we instead focus on feature engineering the logsitic regression model.
+
+```{r, eval=F, include=F}
+#testing optimising RBF parameters, very restricted grid search
+Cs <- c(1, 5, 10)
+sigmas <- c(1, 10, 50)
+results <- expand.grid(groups, Cs, sigmas)
+results$AMS <- NA
+colnames(results) <- c("Group", "C", "Sigma", "AMS")
+
+for(i in 1:nrow(results)){
+  g <- results$Group[i]
+  C <- results$C[i]
+  sigma <- results$Sigma[i]
+  
+  X_group <- X[info$Group==g, !colnames(X) %in% features_to_rm[[g]]]
+  info_group <- info[info$Group==g, ]
+  
+  #create index training samples = 1, test samples = 2, other = 0
+  ind <- c(rep(1, train_n), rep(2, test_n), rep(0, nrow(X_group)-train_n-test_n))
+  kI <- sample(ind, nrow(X_group))
+    
+  X_train <- X_group[kI==1, ]
+  y_train <- info_group[kI==1, "Y"] 
+  
+  X_test <- X_group[kI==2, ]
+  y_test <- info_group[kI==2, "Y"] 
+  w_test <- info_group[kI==2, "Weight"]
+  
+  #scale data
+  X_test_scaled <- scale_dat(X_test, X_train, add.intercept = F)
+  X_train_scaled <- scale_dat(X_train, X_train, add.intercept = F)
+  
+  ckernel <- tuned_kernel(rbf_kernel, sigma)
+  model <- kernel_svm(X_train_scaled, y_train, C, ckernel)
+  y_pred <- model(X_test_scaled)
+  results[i, "AMS"] <- calculate_ams_partition(y_test, y_pred, w_test, sum_w)
+}
+```
