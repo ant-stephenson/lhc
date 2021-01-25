@@ -164,14 +164,14 @@ A few experiments over different models (varying parameters including $n_{rbf}$ 
 To finally choose our best performing model, we needed to define the criterion with which we want to judge their success. For each experiment, we recorded both the average and mean absolute deviation of the AUC and AMS. After some consideration, we concluded that since our goal was ultimately to maximise AMS, that ought to form the primary benchmark, although experimental results for some models showed a high degree of variability between folds. We considered scaling the AMS measurements by the mean absolute deviation, to try and optimise for the most consistently effective model, though the top performing models in terms of AMS were not too variable. The top model for each group is shown in table~\ref{table:results}. 
 
 \input{results_table_groups}
-To try and determine how reliable our performance assessment might be, we plotted some figures for both performance measures (AUC and AMS) against varying regularisation, numbers of RBF centroids and order of polynomials. Restricting this summary analysis to our preferred metric, the unscaled AMS, we see the results in the boxplots in figure~\ref{fig:boxes}. The AMS results do not change much as as $n_{rbf}$ and $\lambda$ are varied, though including polynomial transformations of the variables show a decisive improvement. These figures are consistent with the results in table~\ref{table:results} and so we opted for the final set of models with the following parameters:
+To try and determine how reliable our performance assessment might be, we plotted some figures for both performance measures (AUC and AMS) against varying regularisation, numbers of RBF centroids and order of polynomials. Restricting this summary analysis to our preferred metric, the unscaled AMS, we see the results in the boxplots in figure~\ref{fig:boxes}. The AMS results do not change much as $n_{rbf}$ and $\lambda$ are varied, though including polynomial transformations of the variables show a decisive improvement. These figures are consistent with the results in table~\ref{table:results} and so we opted for the final set of models with the following parameters:
 \eq{
     \bm{\lambda} &= (0.00464, 1\times 10^{-4}, 10) \\
     \bm{b} &= (3, 3, 3) \\
     \bm{n_{rbf}} &= (1, 0, 1) \\
     \bm{\theta} &= (0.6, 0.4, 0.7)
 }
-for regularisation parameter $\boldsymbol{\lambda}=(\lambda_{j=0}, \lambda_{j=1}, \lambda={j=2+})$, polynomial order $\bm{b}=(b_{j=0}, b_{j=1}, b_{j=2+})$, number of RBF centroids $\bm{n_{rbf}}=(n_{rbf,j=0}, n_{rbf,j=1}, n_{rbf,j=2+})$ and vector of jet group AMS thresholds $\bm{\theta} = (\theta_{j=0}, \theta_{j=1}, \theta_{j=2+})$.
+for regularisation parameter $\boldsymbol{\lambda}=(\lambda_{j=0}, \lambda_{j=1}, \lambda_{j=2+})$, polynomial order $\bm{b}=(b_{j=0}, b_{j=1}, b_{j=2+})$, number of RBF centroids $\bm{n_{rbf}}=(n_{rbf,j=0}, n_{rbf,j=1}, n_{rbf,j=2+})$ and vector of jet group AMS thresholds $\bm{\theta} = (\theta_{j=0}, \theta_{j=1}, \theta_{j=2+})$.
 
 \begin{figure}[h]
     \centering
@@ -197,13 +197,13 @@ To actually calculate AMS scores, we need to convert out probabilistic outputs i
 }
 with jet groups $g$, folds $k$ and threshold for group $g$, $\theta_g$ and a function $\rm{ams}(g, k, \theta_g)$ which computes the AMS for a particular group-fold combination given its threshold.
 
-Using the model that ranked the best in terms of scaled AMS, we get the following results on the cross-validated out-of-sample performance for the training set and the hold-out test set are in table~\ref{table:final_results}. We have a final validation AUC of 0.833 and when we apply our selected AMS thresholds to samples of each jet group, we achive a final AMS score of 1.998.
+Using the model that ranked the best in terms of scaled AMS, we get the following results on the cross-validated out-of-sample performance for the training set and the hold-out test set are in table~\ref{table:final_results}. We have a final test AUC of 0.833 and when we apply our selected AMS thresholds to samples of each jet group, we achive a final AMS score of 1.998.
 \input{final_results_table.tex}
 
 
 \section{Conclusion}
 \label{conclusion}
-In this document we present a classification algorithm to detect events in the LHC where a Higgs boson decays into two tau particles. The samples appeared to be generated from three distinct physical processes, and so we divided the dataset into three groups based on the recorded number of jets, and then trained a separate classification model for each group. Though we explored SVM, our final models were l2-constrained logistic regression, with RBF centroid features and polynomial transformed features. The hyperparamters for each moel $b, n_{rbf}$ and $\lambda$ were selected by performing cross validation over different permutations. On a hold-out validation set, we achieved an overall AMS metric of 2.0. 
+In this document we present a classification algorithm to detect events in the LHC where a Higgs boson decays into two tau particles. The samples appeared to be generated from three distinct physical processes, so we divided the dataset into three groups based on the recorded number of jets, and then trained a separate classification model for each group. Though we explored SVM, our final models were L2-constrained logistic regression, with RBF centroid features and polynomial transformed features. The hyperparameters for each model $b, n_{rbf}$ and $\lambda$ were selected by performing cross validation over different permutations. On a hold-out test set, we achieved an overall AMS metric of 2.0. 
 
 \pagebreak 
 
