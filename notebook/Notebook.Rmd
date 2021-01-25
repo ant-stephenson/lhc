@@ -8,6 +8,7 @@ output:
 ---
 
 ```{r setup, include=FALSE}
+library(kableExtra)
 knitr::opts_chunk$set(echo = TRUE)
 do_save_outputs <- TRUE
 ```
