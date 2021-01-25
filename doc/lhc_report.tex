@@ -19,7 +19,7 @@
 \begin{document}
 \maketitle
 \begin{abstract}
-    Analysing the fermionic Higgs decay channel $H\rightarrow\tau\tau$ is important for providing experimental evidence of the Higgs mechanism for fermions. Using statistical classification algorithms we aim to optimise the signal:background ratio in the data (measured by the AMS). In particular, we build a logistic regression model with some engineered features augmenting the original dataset. Using 10-fold cross-validation we select a ``best" model using the AMS (scaled by mean absolute deviation over folds) and then test its performance on a hold-out test set. On this set we achieve an AMS of 2.0.
+    Analysing the fermionic Higgs decay channel $H\rightarrow\tau\tau$ is important for providing experimental evidence of the Higgs mechanism for fermions. Using statistical classification algorithms we aim to optimise the signal:background ratio in the data (measured by the AMS). In particular, we build a logistic regression model with some engineered features augmenting the original dataset. Using 10-fold cross-validation we select select a model with the best AMS and then test its performance on a hold-out test set. On this set we achieve an AMS of 2.0.
 \end{abstract}
 
 \section{Introduction}
@@ -78,14 +78,14 @@ Since this is the formal objective we aim to maximise, it might make sense to tr
 To compute the AMS for a given model output $p \in [0,1]$, we also need to define a \emph{decision rule} that determines the threshold probability at which a signal is declared. For example, if we choose a default threshold, with no prior knowledge at $\theta = 0.5$ then we set our prediction $\hat{y} = s$ if $p > \theta$. In much the same way as we plot the ROC curve by computing the TPR and FPR at different thresholds, so we can plot a curve of AMS against this threshold and thereby determine an optimal value. 
 
 \subsection{SVM}
-We considered trying to use a Support Vector Machines as a classification algorithm, and created our own implementation of the algorithm in R. While standard SVM find an optimal linear decision boundary, kernel SVM can project the data into a higher dimensional space and find a more complex boundary. We discuss the Lagrangian optimisation problem for both soft-margin and kernel svm in \ref{app:svm}. Unfortunately SVM was not well suited to this classification problem as the two classes are not well separated. Additionally, this is a large dataset and SVM scales poorly with the number of training samples, and so we are only able to train on a fraction of the data.
+We considered trying to use Support Vector Machines as a classification algorithm, and created our own implementation of the algorithm in R. While standard SVMs find an optimal linear decision boundary, kernel SVM can project the data into a higher dimensional space and find a more complex boundary. We discuss the Lagrangian optimisation problem for both soft-margin and kernel svm in \ref{app:svm}. Unfortunately, SVM was not well suited to this classification problem as the two classes are not well separated. Additionally, this is a large dataset and SVM scales poorly with the number of training samples, and so we are only able to train on a fraction of the data.
 
-Ensemble SVM is a technique where multiple SVM models are trained on subsets of the training data. To classify new samples, the majority vote from the models is taken. Dividing a dataset of $n$ samples over $m$ models reduces the computational complexity of an $\mathcal{O}(n^2)$ algorithm to $\mathcal{O}(n^2/m)$. In Figure \ref{fig:svm}, we trained 10 soft margin SVM models, each on 500 samples, and classified the remaining samples in each group. We show that the ensemble model outperforms the component models . 
+Ensemble SVM is a technique where multiple SVM models are trained on subsets of the training data. To classify new samples, the majority vote from the component models is taken. Dividing a dataset of $n$ samples over $m$ models reduces the computational complexity of an $\mathcal{O}(n^2)$ algorithm to $\mathcal{O}(n^2/m)$. In Figure \ref{fig:svm}, we trained 10 soft margin SVM models, each on 500 samples, and classified the remaining samples in each group. We show that the ensemble models outperforms the component models. 
 
 \begin{figure}[h]
     \centering
 	\includegraphics[width=0.5\textwidth]{Ensemble_SVM.pdf}
-    \caption{Performance of 10 SVM models and an ensemble SVM per group}
+    \caption{Performance of 10 SVM models and an ensemble SVM for each jet group}
     \label{fig:svm}
 \end{figure}
 
@@ -95,13 +95,11 @@ We chose to use a logistic regression as a baseline model to try and solve our c
 \subsubsection{Implementation}
 We implemented our logistic regression model by defining an R class with a standard interface (to enable polymorphism) and an associated fitting function. This function made use of Newton's method (\ref{algo:newton}) with a backtracking linesearch (\ref{algo:line}) in order to calculate maximum likelihood estimates for our model coefficients, $\betav$. \ref{appendix:newton_lr} show's the full calculations of the gradient and Hessian of the logistic likelihood function required to implement Newton's method.
 
-
-
 \subsection{Feature Engineering}
-In order to improve the performance of our model, we attempted to carry out some feature engineering to extract as much information as possible from the dataset.
+In order to improve model performance of our model, the following feature engineering was conducted.
 
 \subsubsection{Redundancy}
-By considering the basic physics of the beam it is possible to see that there is some redundancy amongst the (primitive) features in the dataset. We can exploit this fact and reduce our initial feature space slightly, by transforming the redundant features into a set of new derived features that contain the same information. 
+By considering the basic physics of the beam it is possible to see that there is some redundancy amongst the primitive features in the dataset. We can exploit this fact and reduce our initial feature space slightly, by transforming the redundant features into a set of new derived features that contain the same information. 
 More specifically, the redundancy comes from the consideration that the physical phenomena should be invariant to certain symmetries; a rotation about the beam ($z$) axis and reflections in the $xy$-plane.
 
 In particular, we defined the following new features:
@@ -117,10 +115,10 @@ In particular, we defined the following new features:
 }
 
 \subsubsection{Higher-Order Effects}
-From the exploratory analysis of the data, in particular the visualisation of the principal components, it appears that the classes are not linearly separable in the base feature space. As a result, we hope that perhaps by including non-linear transformations of our features, such as polynomials and RBF centroids, we might be able to model some of the non-linear elements of the relationship between the classes and the features.
+From the exploratory analysis of the data, in particular the visualisation of the principal components, it appears that the classes are not linearly separable in the base feature space. As a result, we hope that including non-linear transformations of our features, such as polynomials and RBF centroids, will help model the complex relationship between the classes and the features.
 
-\paragraph{RBF Centroids}
-To attempt to capture generic higher order interaction-type effects, we implemented a set of RBF centroid features. The implementation works as follows \newline
+\subsubsection{RBF Centroids}
+To attempt to capture generic higher order interaction-type effects, we implemented a set of RBF centroid features. The implementation works as follows: \newline
 \begin{algorithm}[H]
     1. Generate heuristic estimate of RBF hyperparameter $s$.\\
     2. Select $n_c$ points from $\Xv_{train}$, $\Xv_c = \{\xv^{train}_i, \dots, \xv^{train}_{n_c}\}$.\\
@@ -137,16 +135,15 @@ To attempt to capture generic higher order interaction-type effects, we implemen
 \end{algorithm}
 
 \subsubsection{Polynomial Transformations}
-In order to try and model non-linear relationships between our features and the target labels, we decided to try and include polynomial transformations of the features. In the results section we will define the (highest) order of the polynomial transformation included in the model by the variable $b \in \{1,2,3\}$.
+We testing including polynomial transformations of the features. We denote the (highest) order of the polynomial transformation included in the model by the variable $b \in \{1,2,3\}$. 
 
-\subsubsection{Interactions}
-Although we considered implementing interactions to further augment our covariates, we chose not to pursue this avenue in the end. The reason for this is that the number of combinations of pairwise interactions for our feature set is 378 Including all of these is likely to significantly increase the risk of overfitting our model, and without a principled method to either choose to only include a subset of interactions, or a way to remove most of them, it seems preferable to skip this option. Additionally, the large increase in feature space would also lead to a sizeable increase in computation time, as the Hessian dimensions would increase by a factor $\sim 4-5$ and hence the time by approximately two orders of magnitude (as our algorithm uses Newton's method which scales as $O(d^3)$ for a $d$-dimensional feature space) for the case where we include polynomial terms upto third order. If we include only the original features plus interactions, the computation time scales by worse than three orders of magnitude in comparison.
+Interaction terms were not included due to the number of features in the dataset. Including just first-order interactions would create an additional ${28 \choose 2} = 378$ features. Including all these variables will significantly increase the risk of over fitting. Additionally, the large increase in feature space would also lead to a sizeable increase in computation time, as the Hessian dimensions would increase by a factor $\sim 4-5$ and hence the time by approximately two orders of magnitude (as our algorithm uses Newton's method which scales as $O(d^3)$ for a $d$-dimensional feature space) for the case where we include polynomial terms upto third order. If we include only the original features plus interactions, the computation time scales by worse than three orders of magnitude in comparison.
 
 \section{Results}
 \label{results}
 
 \subsection{Cross Validation}
-To make decisions regarding the relative performance of our candidate models we used a 10-fold cross-validation procedure to train and test each of the permutations of our features and models. By running experiments that carried out the procedure, we were able to generate summary outputs that concisely captured a representation of performance. More precisely, we appended rows of information to a $.csv$ file for each experiment that could then be subsequently analysed to compare performance. Note that each experiment was run with an unspecified random seed, so we expect some degree of random variation between experiments even with no change to parameters, simply due to the change in data partitioning. We can use this scale of variance to aid identification of significant performance improvements. 10 fold cross-validation was picked as a compromise between speed of computation and model variance; computation time scales as $O(KNd)$ for $K$ folds, $N$ data points and $d$ features, whilst we expect the variance of our (averaged over folds) parameter estimates to scale as $\frac{1}{K}$. In effect, by picking (for example) 10 folds rather than 5, we are trading an increase in computation time of a factor of two for a decrease in model variance of the same factor, for an equivalent variance in our performance estimate.
+To make decisions regarding the relative performance of our candidate models we used a 5-fold cross-validation procedure to train and test permutations of hyperparameters. By running experiments that carried out the procedure, we were able to generate summary outputs that concisely captured a representation of performance. More precisely, we appended rows of information to a $.csv$ file for each experiment that could then be subsequently analysed to compare performance. Note that each experiment was run with an unspecified random seed, so we expect some degree of random variation between experiments even with no change to parameters, simply due to the change in data partitioning. We can use this scale of variance to aid identification of significant performance improvements. 10 fold cross-validation was picked as a compromise between speed of computation and model variance; computation time scales as $O(KNd)$ for $K$ folds, $N$ data points and $d$ features, whilst we expect the variance of our (averaged over folds) parameter estimates to scale as $\frac{1}{K}$. In effect, by picking (for example) 10 folds rather than 5, we are trading an increase in computation time of a factor of two for a decrease in model variance of the same factor, for an equivalent variance in our performance estimate.
 
 \subsection{AMS Threshold}
 Part of our model selection process is to determine the thresholds we want to choose as part of our decision rule to convert probabilistic model outputs into class (signal) predictions. By viewing the curves of AMS against threshold for each fold (\ref{fig:ams_curve}), on each model category, we can see how consistent this relationship is. All three model types show a fairly high amount of variance between folds, although $j=2+$ appears to be the noisiest. There does appear to be a reasonable degree of agreement between curves however. In order to try and select optimal thresholds, we decided to calculate the minimum over the curves at each threshold, to get an effective lower bounding curve and then find the maximum of this, as a conservative estimate that we hope will minimise the chance of overfitting. 
@@ -164,18 +161,17 @@ A few experiments over different models (varying parameters including $n_{rbf}$ 
 
 
 \subsection{Model Selection}
-To finally choose our best performing model, we needed to define the criterion with which we want to judge their success. For each experiment, we recorded both the average and mean absolute deviation of the AUC and AMS. After some consideration, we concluded that since our goal was ultimately to maximise AMS, that ought to form the primary benchmark, although experimental results show a high degree of variability between folds. As a result, we opted to scale the AMS measurements by the mean absolute deviation, to try and optimise for the most consistently effective model. The top 5 experiments according to this metric are shown in table~\ref{table:results}. 
+To finally choose our best performing model, we needed to define the criterion with which we want to judge their success. For each experiment, we recorded both the average and mean absolute deviation of the AUC and AMS. After some consideration, we concluded that since our goal was ultimately to maximise AMS, that ought to form the primary benchmark, although experimental results for some models showed a high degree of variability between folds. We considered scaling the AMS measurements by the mean absolute deviation, to try and optimise for the most consistently effective model, though the top performing models in terms of AMS were not too variable. The top model for each group is shown in table~\ref{table:results}. 
 
 \input{results_table_groups}
-
-To try and determine how reliable our performance assessment might be, we plotted some figures for both performance measures (AUC and AMS) against varying regularisation, numbers of RBF centroids and order of polynomials. Restricting this summary analysis to our preferred metric, the scaled AMS, we see a noisy but somewhat consistent result in the boxplots in figure~\ref{fig:boxes}. The results for $n_{rbf}$ are particularly unclear, with a high degree of variability, whilst the polynomial results, although variable between experiments, show a decisive improvement for 2nd order polynomials. Based on these and the top experiments, we opted for the final set of models with the following parameters:
+To try and determine how reliable our performance assessment might be, we plotted some figures for both performance measures (AUC and AMS) against varying regularisation, numbers of RBF centroids and order of polynomials. Restricting this summary analysis to our preferred metric, the unscaled AMS, we see the results in the boxplots in figure~\ref{fig:boxes}. The AMS results do not change much as as $n_{rbf}$ and $\lambda$ are varied, though including polynomial transformations of the variables show a decisive improvement. These figures are consistent with the results in table~\ref{table:results} and so we opted for the final set of models with the following parameters:
 \eq{
     \bm{\lambda} &= (0.00464, 1\times 10^{-4}, 10) \\
     \bm{b} &= (3, 3, 3) \\
     \bm{n_{rbf}} &= (1, 0, 1) \\
     \bm{\theta} &= (0.6, 0.4, 0.7)
 }
-for regularisation parameter $\bm{lambda}=(\lambda_{j=0}, \lambda_{j=1}, \lambda={j=2+})$, polynomial order $\bm{b}=(b_{j=0}, b_{j=1}, b_{j=2+})$, number of RBF centroids $\bm{n_{rbf}}=(n_{rbf,j=0}, n_{rbf,j=1}, n_{rbf,j=2+})$ and vector of jet group AMS thresholds $\bm{\theta} = (\theta_{j=0}, \theta_{j=1}, \theta_{j=2+})$.
+for regularisation parameter $\boldsymbol{\lambda}=(\lambda_{j=0}, \lambda_{j=1}, \lambda={j=2+})$, polynomial order $\bm{b}=(b_{j=0}, b_{j=1}, b_{j=2+})$, number of RBF centroids $\bm{n_{rbf}}=(n_{rbf,j=0}, n_{rbf,j=1}, n_{rbf,j=2+})$ and vector of jet group AMS thresholds $\bm{\theta} = (\theta_{j=0}, \theta_{j=1}, \theta_{j=2+})$.
 
 \begin{figure}[h]
     \centering
@@ -201,20 +197,13 @@ To actually calculate AMS scores, we need to convert out probabilistic outputs i
 }
 with jet groups $g$, folds $k$ and threshold for group $g$, $\theta_g$ and a function $\rm{ams}(g, k, \theta_g)$ which computes the AMS for a particular group-fold combination given its threshold.
 
-Using the model that ranked the best in terms of scaled AMS, we get the following results on the cross-validated out-of-sample performance for the training set and the hold-out test set are in table~\ref{table:final_results}
+Using the model that ranked the best in terms of scaled AMS, we get the following results on the cross-validated out-of-sample performance for the training set and the hold-out test set are in table~\ref{table:final_results}. We have a final validation AUC of 0.833 and when we apply our selected AMS thresholds to samples of each jet group, we achive a final AMS score of 1.998.
 \input{final_results_table.tex}
-where the ``error" term here shows the average mean absolute deviation per group across folds. 
 
-Clearly the result for the test set is significantly worse than that for the 10-fold out-of-sample measure. A possible explanation can be found by looking at the AMS threshold curves for the two datasets for this model. For the group corresponding to 0 jets, the threshold for the maximum AMS is substantially lower than what we saw in the training set at 0.2 compared to 0.6. The other two jet categories have an optimal threshold of 0.5 in the test set, versus 0.4 and 0.6 in the training set. 
-
-\begin{figure}[h]
-    \includegraphics[width=8cm]{validation-ams-curves.pdf}
-    \caption{AMS curves for the test set}
-\end{figure}
 
 \section{Conclusion}
 \label{conclusion}
-
+In this document we present a classification algorithm to detect events in the LHC where a Higgs boson decays into two tau particles. The samples appeared to be generated from three distinct physical processes, and so we divided the dataset into three groups based on the recorded number of jets, and then trained a separate classification model for each group. Though we explored SVM, our final models were l2-constrained logistic regression, with RBF centroid features and polynomial transformed features. The hyperparamters for each moel $b, n_{rbf}$ and $\lambda$ were selected by performing cross validation over different permutations. On a hold-out validation set, we achieved an overall AMS metric of 2.0. 
 
 \pagebreak 
 
